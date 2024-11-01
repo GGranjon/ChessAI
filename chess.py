@@ -60,7 +60,7 @@ class Piece():
 
 class Board():
     def __init__(self):
-        self.turn = 0   # white turn
+        self.turn = 'w'   # white turn
         self.piece_images = {}
         self.init_board()
         self.load_pieces()
@@ -100,6 +100,11 @@ class Board():
             self.piece_images[elt.surname] = pygame.transform.smoothscale(self.piece_images[elt.surname], ((self.piece_images[elt.surname]).get_width()*IMG_FACTOR, (self.piece_images[elt.surname]).get_height()*IMG_FACTOR))
             elt.image = self.piece_images[elt.surname]
         
+    def changeTurn(self):
+        if self.turn == 'w':
+            self.turn = 'b'
+        else:
+            self.turn = 'w'
 
     def draw_board(self):
         win.fill(WHITE)
@@ -123,17 +128,9 @@ class Board():
             ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"]
         ]
     
-    def draw_pieces2(self):
+    def draw_pieces(self):
         for piece in self.pieces:
             win.blit(piece.image, (piece.coord_x + OFFSET, piece.coord_y + OFFSET))
-
-    # Dessiner les pièces
-    def draw_pieces(self):
-        for row in range(ROWS):
-            for col in range(COLS):
-                piece = self.board_map[row][col]
-                if piece != "":
-                    win.blit(self.piece_images[piece], (col * SQUARE_SIZE + OFFSET, row * SQUARE_SIZE + OFFSET))
 
     def get_board_position(self, coord_x, coord_y):
         """returns the position of the given coordinates on the chess board (from (1,1) to (8,8))"""
@@ -146,12 +143,26 @@ class Board():
     def isCheckmate(self):
         return 0
 
-    def isEmptySquare(self, vect):
+    def isEmptySquare(self, square):
         """0 = empty square, else piece.color"""
         for piece in self.pieces:
-            if (piece.x, piece.y) == vect:
+            if (piece.x, piece.y) == square:
                 return piece.color
         return 0
+
+    def capture(self, indice_piece):
+        self.pieces.pop(indice_piece)
+    
+    def getPieceIndexes(self, square):
+        loc_index, glob_index = 0,0
+        for k,piece in enumerate(self.pieces):
+            if (piece.x, piece.y) == square:
+                glob_index = k
+                loc_index = k
+                if piece.color == 'b':
+                    loc_index -= 16
+                return (glob_index, loc_index)
+        return (-1,-1)
 
     def bishopMoves(self, x, y, color):
         positions = []
@@ -161,8 +172,6 @@ class Board():
             pos = add_vect((x,y),(k*traj[0], k*traj[1]))
             empty_square = self.isEmptySquare(pos)
             while isInBoard(pos) and empty_square == 0:
-                #print(f"iteration {k}\n")
-                #print(f"pos : ({pos[0]}, {pos[1]}) \n")
                 positions.append(pos)
                 k+=1
                 pos = add_vect((x,y),(k*traj[0], k*traj[1]))
@@ -181,8 +190,6 @@ class Board():
             pos = add_vect((x,y),(k*traj[0], k*traj[1]))
             empty_square = self.isEmptySquare(pos)
             while isInBoard(pos) and empty_square == 0:
-                #print(f"iteration {k}\n")
-                #print(f"pos : ({pos[0]}, {pos[1]}) \n")
                 positions.append(pos)
                 k+=1
                 pos = add_vect((x,y),(k*traj[0], k*traj[1]))
@@ -339,9 +346,18 @@ def main():
                     p = board.pieces[moving_piece]
                     new_x, new_y = board.get_board_position(p.coord_x + PIECES_SIZE/2, p.coord_y + PIECES_SIZE/2)
                     
-                    if board.isLegalMove(moving_piece, new_x, new_y):
+                    if p.color == board.turn and board.isLegalMove(moving_piece, new_x, new_y):
+                        glob_index, loc_index = board.getPieceIndexes((new_x, new_y))
+                        if glob_index != -1:    #there is an opposite piece
+                            board.pieces.pop(glob_index)
+                            if p.color == 'w':
+                                board.white_pieces.pop(loc_index)
+                            else:
+                                board.black_pieces.pop(loc_index)
                         p.x, p.y = new_x, new_y
                         p.coord_x, p.coord_y = board.get_coords(new_x, new_y)
+                        
+                        board.changeTurn()
                         moving_piece = None
                     else:
                         p.coord_x, p.coord_y = board.get_coords(p.x, p.y)
@@ -355,7 +371,7 @@ def main():
                     board.pieces[moving_piece].coord_x-=PIECES_SIZE/2
                     board.pieces[moving_piece].coord_y-=PIECES_SIZE/2
         board.draw_board()
-        board.draw_pieces2()
+        board.draw_pieces()
 
         pygame.display.flip()
 
