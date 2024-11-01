@@ -1,6 +1,7 @@
 import pygame
 import sys
 from math import floor
+from copy import copy
 pygame.init()
 
 # Parameters
@@ -21,6 +22,12 @@ BROWN = (150, 77, 34)
 win = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Jeu d'Échecs")
 
+def add_vect(u,v):
+    return (u[0]+v[0], u[1]+v[1])
+
+def isInBoard(vect):
+    return(vect[0]>0 and vect[0]<9 and vect[1]>0 and vect[1]<9)
+
 class Piece():
     def __init__(self, color, type, x, y):
         self.color = color
@@ -35,6 +42,21 @@ class Piece():
     def get_coords(self, x, y):
         """returns the coordinates given the position"""
         return ((x-1)*SQUARE_SIZE, (8-y)*SQUARE_SIZE)
+    
+    def all_positions(self):
+        match self.type:
+            case 'p':
+                return all_pawn_positions(self)
+        return None
+    
+    def all_possible_positions(self, pieces):
+        return None
+    
+    def all_pawn_positions(self):
+        positions = []
+
+
+
 
 class Board():
     def __init__(self):
@@ -62,8 +84,8 @@ class Board():
 
         #other pieces
         pieces_array = [('w', 'r', 1, 1), ('w', 'r', 8, 1), ('w', 'n', 2, 1), ('w', 'n', 7, 1), ('w', 'b', 3, 1), ('w', 'b', 6, 1),
-                        ('w', 'k', 5, 1), ('w', 'q', 4, 1), ('b', 'r', 1, 8), ('b', 'r', 8, 8), ('b', 'n', 2, 8), ('b', 'n', 7, 8),
-                        ('b', 'b', 3, 8), ('b', 'b', 6, 8), ('b', 'k', 5, 8), ('b', 'q', 4, 8)]
+                        ('w', 'q', 4, 1), ('b', 'r', 1, 8), ('b', 'r', 8, 8), ('b', 'n', 2, 8), ('b', 'n', 7, 8),
+                        ('b', 'b', 3, 8), ('b', 'b', 6, 8), ('b', 'q', 4, 8),('w', 'k', 5, 1), ('b', 'k', 5, 8)]
         for elt in pieces_array:
             if elt[0] == 'w':
                 self.white_pieces.append(Piece(*elt))
@@ -124,11 +146,160 @@ class Board():
     def isCheckmate(self):
         return 0
 
-    def isLegalMove(self):
+    def isEmptySquare(self, vect):
+        """0 = empty square, else piece.color"""
+        for piece in self.pieces:
+            if (piece.x, piece.y) == vect:
+                return piece.color
         return 0
 
-    def KingInCheck(self):
-        return 0
+    def bishopMoves(self, x, y, color):
+        positions = []
+        trajectories = [(1,1), (-1,-1), (1,-1), (-1,1)]
+        for traj in trajectories:
+            k = 1
+            pos = add_vect((x,y),(k*traj[0], k*traj[1]))
+            empty_square = self.isEmptySquare(pos)
+            while isInBoard(pos) and empty_square == 0:
+                #print(f"iteration {k}\n")
+                #print(f"pos : ({pos[0]}, {pos[1]}) \n")
+                positions.append(pos)
+                k+=1
+                pos = add_vect((x,y),(k*traj[0], k*traj[1]))
+                empty_square = self.isEmptySquare(pos)
+            if isInBoard(pos):
+                #there was a piece
+                if empty_square != color:
+                    positions.append(pos)
+        return positions
+    
+    def rookMoves(self, x, y, color):
+        positions = []
+        trajectories = [(1,0), (-1,0), (0,-1), (0,1)]
+        for traj in trajectories:
+            k = 1
+            pos = add_vect((x,y),(k*traj[0], k*traj[1]))
+            empty_square = self.isEmptySquare(pos)
+            while isInBoard(pos) and empty_square == 0:
+                #print(f"iteration {k}\n")
+                #print(f"pos : ({pos[0]}, {pos[1]}) \n")
+                positions.append(pos)
+                k+=1
+                pos = add_vect((x,y),(k*traj[0], k*traj[1]))
+                empty_square = self.isEmptySquare(pos)
+            if isInBoard(pos):
+                #there was a piece
+                if empty_square != color:
+                    positions.append(pos)
+        return positions
+
+    def kingMoves(self, x, y, color):
+        positions = []
+        trajectories = [(1,0), (-1,0), (0,-1), (0,1), (1,1), (-1,-1), (1,-1), (-1,1)]
+        for traj in trajectories:
+            pos = add_vect((x,y),(traj[0], traj[1]))
+            empty_square = self.isEmptySquare(pos)
+            if isInBoard(pos) and empty_square == 0:
+                positions.append(pos)
+            if isInBoard(pos):
+                #there was a piece
+                if empty_square != color:
+                    positions.append(pos)
+        return positions
+                
+    def knightMoves(self, x, y, color):
+        positions = []
+        trajectories = [(2,1), (1,2), (2,-1), (1,-2), (-2,1), (-2,-1), (-1,2), (-1,-2)]
+        for traj in trajectories:
+            pos = add_vect((x,y),(traj[0], traj[1]))
+            empty_square = self.isEmptySquare(pos)
+            if isInBoard(pos) and empty_square == 0:
+                positions.append(pos)
+            if isInBoard(pos):
+                #there was a piece
+                if empty_square != color:
+                    positions.append(pos)
+        return positions
+
+    def pawnMoves(self, x, y, color):
+        print(x,y)
+        positions = []
+        trajectories = []
+        match color:
+            case "w":
+                if self.isEmptySquare((x,y+1)) == 0:
+                    trajectories.append((0,1))
+                for elt in [-1,1]:
+                    print((x+elt,y+1))
+                    print(self.isEmptySquare((x+elt,y+1)))
+                    if y<=7 and self.isEmptySquare((x+elt,y+1)) == "b":
+                        trajectories.append((elt, 1))
+                if y == 2:
+                    trajectories.append((0,2))
+                print(trajectories)
+            case 'b':
+                if self.isEmptySquare((x,y-1)) == 0:
+                    trajectories.append((0,-1))
+                for elt in [-1,1]:
+                    if y >=2 and self.isEmptySquare((x+elt,y-1)) == "w":
+                        trajectories.append((elt, -1))
+                if y == 7:
+                    trajectories.append((0,-2))
+        for traj in trajectories:
+            pos = add_vect((x,y),(traj[0], traj[1]))
+            print(pos)
+            empty_square = self.isEmptySquare(pos)
+            if isInBoard(pos) and empty_square != color:
+                positions.append(pos)
+        print(positions)
+        return positions
+
+    def isLegalMove(self, piece_index, x, y):
+        piece = self.pieces[piece_index]
+        color = piece.color
+        match piece.type:
+            case 'p':
+                return (x,y) in self.pawnMoves(piece.x, piece.y, color)
+            case 'r':
+                return (x,y) in self.rookMoves(piece.x, piece.y, color)
+            case 'b':
+                return (x,y) in self.bishopMoves(piece.x,piece.y,color)
+            case 'n':
+                return (x,y) in self.knightMoves(piece.x,piece.y,color)
+            case 'k':
+                return (x,y) in self.kingMoves(piece.x, piece.y, color)
+            case 'q':
+                return (x,y) in [*self.rookMoves(piece.x, piece.y, color), *self.bishopMoves(piece.x, piece.y, color)]
+        return True
+
+    def kingInCheck(self, color, pieces):
+        """white king : index = 15, black king : index = 31"""
+        inCheck = False
+        if color == 'w' : index = 15
+        else : index = 31
+        king_x, king_y = pieces[index].x, pieces[index].y
+        for piece in enumerate(pieces) :
+            if piece.color != color:
+                px, py = piece.x, piece.y
+                match piece.type :
+                    case 'p':
+                        if (king_x == px - 1 and king_y == py + 1) or (king_x == px + 1 and king_y == py + 1):
+                            return True
+                    case 'q':
+                        if rookCanGo(self, piece.x, piece.y, king_x, king_y, pieces) or bishopCanGo(self, piece.x, piece.y, king_x, king_y, pieces):    #TODO : a optimiser : appeler ces fcts une fois et sauvergarder leur resultat
+                            return True
+                    case 'r':
+                        if rookCanGo(self, piece.x, piece.y, king_x, king_y, pieces):
+                            return True
+                    case 'b':
+                        if bishopCanGo(self, piece.x, piece.y, king_x, king_y, pieces):
+                            return True
+                    case 'n':
+                        if (king_x, king_y) in [(px-1,py+2),(px+1,py+2),(px-1,py-2),(px+1,py-2),(px-2,py+1),(px-2,py-1),(px+2,py-1),(px+2,py+1)]:
+                            return True
+                    case 'k':
+                        None
+        return False
 
     def isDraw(self):
         return 0
@@ -148,36 +319,39 @@ def main():
     board.draw_board()
     while running:
         clock.tick(FPS)
-        for event in pygame.event.get():
+        for event in pygame.event.get():    # EVENTS
+
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                # Vérifie si l'on clique sur la pièce
+            elif event.type == pygame.MOUSEBUTTONDOWN:    # Check if we click on a piece
+
                 mouse_x, mouse_y = pygame.mouse.get_pos()
-                print(mouse_x, mouse_y, '\n')
                 pos_x, pos_y = board.get_board_position(mouse_x, mouse_y)
-                print(pos_x, pos_y, '\n')
-                print(str(board.get_coords(pos_x, pos_y)) + '\n')
                 for k, piece in enumerate(board.pieces):
                     if piece.x == pos_x and piece.y == pos_y:
                         dragging = True
                         moving_piece = k
 
-            elif event.type == pygame.MOUSEBUTTONUP:
-                # Relâcher la pièce
+            elif event.type == pygame.MOUSEBUTTONUP:    # Check if we place the piece
+
                 if moving_piece != None:
                     dragging = False
-                    new_x, new_y = board.get_board_position(board.pieces[moving_piece].coord_x+PIECES_SIZE/2, board.pieces[moving_piece].coord_y+PIECES_SIZE/2)
-                    board.pieces[moving_piece].x = new_x
-                    board.pieces[moving_piece].y = new_y
-                    board.pieces[moving_piece].coord_x, board.pieces[moving_piece].coord_y = board.get_coords(new_x, new_y)
-                    moving_piece = None
+                    p = board.pieces[moving_piece]
+                    new_x, new_y = board.get_board_position(p.coord_x + PIECES_SIZE/2, p.coord_y + PIECES_SIZE/2)
+                    
+                    if board.isLegalMove(moving_piece, new_x, new_y):
+                        p.x, p.y = new_x, new_y
+                        p.coord_x, p.coord_y = board.get_coords(new_x, new_y)
+                        moving_piece = None
+                    else:
+                        p.coord_x, p.coord_y = board.get_coords(p.x, p.y)
 
 
-            elif event.type == pygame.MOUSEMOTION:
-                # Déplacer la pièce si on la tient
+            elif event.type == pygame.MOUSEMOTION:    # Check if we move the piece
+
                 if dragging:
-                    board.pieces[moving_piece].coord_x, board.pieces[moving_piece].coord_y = pygame.mouse.get_pos()
+                    p = board.pieces[moving_piece]
+                    p.coord_x, p.coord_y = pygame.mouse.get_pos()
                     board.pieces[moving_piece].coord_x-=PIECES_SIZE/2
                     board.pieces[moving_piece].coord_y-=PIECES_SIZE/2
         board.draw_board()
