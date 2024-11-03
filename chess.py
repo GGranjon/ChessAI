@@ -57,6 +57,7 @@ class Board():
         self.bbc = True
         self.wsc = True
         self.wbc = True
+        self.enPassant = []
         self.piece_images = {}
         self.init_board()
         self.load_pieces()
@@ -158,7 +159,8 @@ class Board():
             allMoves.append("O-O")
         if self.canBigCastle(color):
             allMoves.append("O-O-O") 
-
+        for elt in self.enPassant:
+            allMoves.append(elt)
         if color == 'w':
             for k,piece in enumerate(self.white_pieces):
                 moves = [(k,elt) for elt in self.pieceMoves(piece) if not self.verifyForCheckWithMove(k,elt[0], elt[1])]
@@ -397,12 +399,65 @@ class Board():
                     elif piece.x == 8:
                         self.bsc = False
 
-    def triesToCastle(self,piece, x, y):
+    def triesToCastle(self, piece, x, y):
         return piece.type == 'k' and piece.x == 5 and ((piece.y == 1 and y == 1) or (piece.y == 8 and y == 8)) and (x == piece.x + 2 or x == piece.x - 2)
 
+    def canEnPassant(self, piece, x, y):
+        """update after each move the list of pawns that can en passant (the piece is moving to x, y)"""
+        possible = []
+        if piece.type == 'p':
+            color = piece.color
+            dico = {'w':(2,1), 'b':(7,-1)}
+            if piece.y == dico[color][0] and y == piece.y + 2*dico[color][1]:
+                #we need to look for potential pawns
+                square1 = self.isEmptySquare((x-1, y))
+                square2 = self.isEmptySquare((x+1, y))
+                if square1 != 0 and square1 != color:
+                    index1 = self.getPieceIndexes(x-1, y)[0]
+                    piece1 = self.pieces[index1]
+                    if piece1.type == 'p':
+                        possible.append([(piece1.x, piece1.y),1])
+                if square2 != 0 and square2 != color:
+                    index2 = self.getPieceIndexes(x+1, y)[0]
+                    piece2 = self.pieces[index2]
+                    if piece2.type == 'p':
+                        possible.append([(piece2.x, piece2.y),-1])
+        self.enPassant = possible    
+
+    def doEnPassant(self, x, y, color):
+        """eat the pawn that is supposed to be eaten"""
+        dico = {'w':-1, 'b':1}
+        coord = (x, y + dico[color])
+        index = self.getPieceIndexes(coord[0], coord[1])
+        piece = self.pieces[index[0]]
+        pcolor = piece.color
+        self.pieces.pop(index[0])
+        if pcolor == 'w': self.white_pieces.pop(index[1])
+        else: self.black_pieces.pop(index[1])
+
+    def isUppingPawn(self, piece):
+        return (piece.color == 'b' and piece.y == 1) or (piece.color == 'w' and piece.y == 8)
+
+    def upThePawn(self, glob_index, loc_index):
+        piece = self.pieces[glob_index]
+        self.pieces[glob_index].type = 'q'
+        self.pieces[glob_index].surname = piece.color + 'q'
+        self.pieces[glob_index].image = pygame.image.load(f'images/{piece.surname}.png')
+        self.pieces[glob_index].image = pygame.transform.smoothscale(self.pieces[glob_index].image, ((self.pieces[glob_index].image).get_width()*IMG_FACTOR, (self.pieces[glob_index].image).get_height()*IMG_FACTOR))
+        if piece.color == 'b':
+            self.black_pieces[loc_index].type = 'q'
+            self.black_pieces[loc_index].surname = piece.color + 'q'
+            self.black_pieces[loc_index].image = self.pieces[glob_index].image
+        else:
+            self.white_pieces[loc_index].type = 'q'
+            self.white_pieces[loc_index].surname = piece.color + 'q'
+            self.white_pieces[loc_index].image = self.pieces[glob_index].image
     def isLegalMove(self, piece_index, x, y):
         """checks if the move piece to (x,y) is a legal move"""
         piece = self.pieces[piece_index]
+        if [(piece.x, piece.y),x-piece.x] in self.enPassant:
+            self.doEnPassant(x,y, piece.color)
+            return True
         if piece.type == 'k':
             if self.triesToCastle(piece, x, y):   #maybe tries to castle:
                 if x == 7:
@@ -494,6 +549,8 @@ def main():
                         glob_index, loc_index = board.getPieceIndexes(new_x, new_y)
                         if glob_index != -1:    #there is an opposite piece
                             board.capture(glob_index)
+                        board.canEnPassant(p, new_x, new_y)
+                        print(board.enPassant)
                         if board.triesToCastle(p, new_x, new_y):
                             if new_x == 7:
                                 board.castle(p.color, "small")
@@ -503,10 +560,13 @@ def main():
                             p.x, p.y = new_x, new_y
                             p.coord_x, p.coord_y = board.get_coords(new_x, new_y)
 
+                        if board.isUppingPawn(p):
+                            (glob_index, loc_index) = board.getPieceIndexes(new_x, new_y)
+                            board.upThePawn(glob_index, loc_index)
                         if p.type == 'k' or p.type == 'r':
                             board.updateCastle(p)
-
                         board.changeTurn()
+                        print(board.getAllMoves(board.turn))
                         if board.isCheckmate(board.turn):
                             print("checkmate !")
                         if board.isStalemate(board.turn):
