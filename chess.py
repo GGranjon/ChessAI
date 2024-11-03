@@ -536,7 +536,7 @@ def main():
                 for k, piece in enumerate(board.pieces):
                     if piece.x == pos_x and piece.y == pos_y:
                         dragging = True
-                        moving_piece = k
+                        moving_piece = k 
 
             elif event.type == pygame.MOUSEBUTTONUP:    # Check if we place the piece
 
