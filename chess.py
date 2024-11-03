@@ -1,7 +1,6 @@
 import pygame
 import sys
 from math import floor
-from copy import copy
 pygame.init()
 
 # Parameters
@@ -11,7 +10,7 @@ IMG_FACTOR = 0.65
 SQUARE_SIZE = WIDTH // COLS
 PIECES_SIZE = pygame.image.load('images/bp.png').get_width()*IMG_FACTOR
 OFFSET = (SQUARE_SIZE - PIECES_SIZE)/2
-FPS = 60
+FPS = 120
 
 # Colors
 WHITE = (235, 235, 235)
@@ -28,6 +27,12 @@ def add_vect(u,v):
 def isInBoard(vect):
     return(vect[0]>0 and vect[0]<9 and vect[1]>0 and vect[1]<9)
 
+def board_copy(board):
+    new_board = []
+    for elt in board:
+        new_board.append(Piece(elt.color, elt.type, elt.x, elt.y))
+    return new_board
+
 class Piece():
     def __init__(self, color, type, x, y):
         self.color = color
@@ -42,25 +47,16 @@ class Piece():
     def get_coords(self, x, y):
         """returns the coordinates given the position"""
         return ((x-1)*SQUARE_SIZE, (8-y)*SQUARE_SIZE)
-    
-    def all_positions(self):
-        match self.type:
-            case 'p':
-                return all_pawn_positions(self)
-        return None
-    
-    def all_possible_positions(self, pieces):
-        return None
-    
-    def all_pawn_positions(self):
-        positions = []
-
-
-
+    def is_equal(self, piece2):
+        return self.surname == piece2.surname and self.x == piece2.x and self.y == piece2.y
 
 class Board():
     def __init__(self):
         self.turn = 'w'   # white turn
+        self.bsc = True   #castles
+        self.bbc = True
+        self.wsc = True
+        self.wbc = True
         self.piece_images = {}
         self.init_board()
         self.load_pieces()
@@ -140,129 +136,171 @@ class Board():
         """returns the coordinates given the position"""
         return ((x-1)*SQUARE_SIZE, (8-y)*SQUARE_SIZE)
     
-    def isCheckmate(self):
-        return 0
+    def pieceMoves(self, piece):
+        px, py, color = piece.x, piece.y, piece.color
+        match piece.type:
+            case 'p':
+                return self.pawnMoves(px, py, color)
+            case 'r':
+                return self.rookMoves(px, py, color)
+            case 'b':
+                return self.bishopMoves(px,py,color)
+            case 'n':
+                return self.knightMoves(px,py,color)
+            case 'k':
+                return self.kingMoves(px, py, color)
+            case 'q':
+                return [*self.rookMoves(px, py, color), *self.bishopMoves(px, py, color)]
 
-    def isEmptySquare(self, square):
+    def getAllMoves(self,color):
+        allMoves = []
+        if self.canSmallCastle(color):
+            allMoves.append("O-O")
+        if self.canBigCastle(color):
+            allMoves.append("O-O-O")
+            
+        if color == 'w':
+            for k,piece in enumerate(self.white_pieces):
+                moves = [(k,elt) for elt in self.pieceMoves(piece) if not self.verifyForCheckWithMove(k,elt[0], elt[1])]
+                allMoves += moves
+        else:
+            for k,piece in enumerate(self.black_pieces):
+                moves = [(k + len(self.white_pieces),elt) for elt in self.pieceMoves(piece) if not self.verifyForCheckWithMove(k+len(self.white_pieces),elt[0], elt[1])]
+                allMoves += moves
+        return allMoves
+
+    def isCheckmate(self, color):
+        """verify is the color given is checkmated, i.e it does not have any moves and is in check"""
+        return self.getAllMoves(color) == [] and self.kingInCheck(color, self.pieces)
+
+    def isStalemate(self, color):
+        """verify is the color given got stalemate, i.e it does not have any moves but is not in check"""
+        return self.getAllMoves(color) == [] and not self.kingInCheck(color, self.pieces)
+
+    def isEmptySquare(self, square, other_pieces = None):
         """0 = empty square, else piece.color"""
-        for piece in self.pieces:
-            if (piece.x, piece.y) == square:
-                return piece.color
+        if other_pieces == None:
+            for piece in self.pieces:
+                if (piece.x, piece.y) == square:
+                    return piece.color
+        else:
+            for piece in other_pieces:
+                if (piece.x, piece.y) == square:
+                    return piece.color
         return 0
 
     def capture(self, indice_piece):
+        color = self.pieces[indice_piece].color
         self.pieces.pop(indice_piece)
+        if color == 'w':
+            self.white_pieces.pop(indice_piece)
+        else:
+            self.black_pieces.pop(indice_piece-len(self.white_pieces))
     
-    def getPieceIndexes(self, square):
+    def getPieceIndexes(self, x, y):
         loc_index, glob_index = 0,0
         for k,piece in enumerate(self.pieces):
-            if (piece.x, piece.y) == square:
+            if (piece.x, piece.y) == (x,y):
                 glob_index = k
                 loc_index = k
                 if piece.color == 'b':
-                    loc_index -= 16
+                    loc_index -= len(self.white_pieces)
                 return (glob_index, loc_index)
         return (-1,-1)
 
-    def bishopMoves(self, x, y, color):
+    def bishopMoves(self, x, y, color, other_pieces = None):
         positions = []
         trajectories = [(1,1), (-1,-1), (1,-1), (-1,1)]
         for traj in trajectories:
             k = 1
             pos = add_vect((x,y),(k*traj[0], k*traj[1]))
-            empty_square = self.isEmptySquare(pos)
+            empty_square = self.isEmptySquare(pos, other_pieces)
             while isInBoard(pos) and empty_square == 0:
                 positions.append(pos)
                 k+=1
                 pos = add_vect((x,y),(k*traj[0], k*traj[1]))
-                empty_square = self.isEmptySquare(pos)
+                empty_square = self.isEmptySquare(pos, other_pieces)
             if isInBoard(pos):
                 #there was a piece
                 if empty_square != color:
                     positions.append(pos)
         return positions
     
-    def rookMoves(self, x, y, color):
+    def rookMoves(self, x, y, color, other_pieces = None):
         positions = []
         trajectories = [(1,0), (-1,0), (0,-1), (0,1)]
         for traj in trajectories:
             k = 1
             pos = add_vect((x,y),(k*traj[0], k*traj[1]))
-            empty_square = self.isEmptySquare(pos)
+            empty_square = self.isEmptySquare(pos, other_pieces)
             while isInBoard(pos) and empty_square == 0:
                 positions.append(pos)
                 k+=1
                 pos = add_vect((x,y),(k*traj[0], k*traj[1]))
-                empty_square = self.isEmptySquare(pos)
-            if isInBoard(pos):
-                #there was a piece
-                if empty_square != color:
-                    positions.append(pos)
-        return positions
-
-    def kingMoves(self, x, y, color):
-        positions = []
-        trajectories = [(1,0), (-1,0), (0,-1), (0,1), (1,1), (-1,-1), (1,-1), (-1,1)]
-        for traj in trajectories:
-            pos = add_vect((x,y),(traj[0], traj[1]))
-            empty_square = self.isEmptySquare(pos)
-            if isInBoard(pos) and empty_square == 0:
-                positions.append(pos)
+                empty_square = self.isEmptySquare(pos, other_pieces)
             if isInBoard(pos):
                 #there was a piece
                 if empty_square != color:
                     positions.append(pos)
         return positions
                 
-    def knightMoves(self, x, y, color):
+    def kingMoves(self, x, y, color, other_pieces = None):
+        positions = []
+        trajectories = [(1,0), (-1,0), (0,-1), (0,1), (1,1), (-1,-1), (1,-1), (-1,1)]
+        for traj in trajectories:
+            pos = add_vect((x,y),(traj[0], traj[1]))
+            empty_square = self.isEmptySquare(pos, other_pieces)
+            if empty_square == 0 and isInBoard(pos):
+                positions.append(pos)
+            elif isInBoard(pos):
+                #there was a piece
+                if empty_square != color:
+                    positions.append(pos)
+        return positions
+                
+    def knightMoves(self, x, y, color, other_pieces = None):
         positions = []
         trajectories = [(2,1), (1,2), (2,-1), (1,-2), (-2,1), (-2,-1), (-1,2), (-1,-2)]
         for traj in trajectories:
             pos = add_vect((x,y),(traj[0], traj[1]))
-            empty_square = self.isEmptySquare(pos)
-            if isInBoard(pos) and empty_square == 0:
+            empty_square = self.isEmptySquare(pos, other_pieces)
+            if empty_square == 0 and isInBoard(pos):
                 positions.append(pos)
-            if isInBoard(pos):
+            elif isInBoard(pos):
                 #there was a piece
                 if empty_square != color:
                     positions.append(pos)
         return positions
 
-    def pawnMoves(self, x, y, color):
-        print(x,y)
+    def pawnMoves(self, x, y, color, other_pieces = None):
         positions = []
         trajectories = []
         match color:
             case "w":
-                if self.isEmptySquare((x,y+1)) == 0:
-                    trajectories.append((0,1))
+                trajectories.append((0,1))
                 for elt in [-1,1]:
-                    print((x+elt,y+1))
-                    print(self.isEmptySquare((x+elt,y+1)))
-                    if y<=7 and self.isEmptySquare((x+elt,y+1)) == "b":
+                    if y<=7 and self.isEmptySquare((x+elt,y+1), other_pieces) == "b":
                         trajectories.append((elt, 1))
-                if y == 2:
+                if y == 2:  #first move
                     trajectories.append((0,2))
-                print(trajectories)
             case 'b':
-                if self.isEmptySquare((x,y-1)) == 0:
-                    trajectories.append((0,-1))
+                trajectories.append((0,-1))
                 for elt in [-1,1]:
-                    if y >=2 and self.isEmptySquare((x+elt,y-1)) == "w":
+                    if y >=2 and self.isEmptySquare((x+elt,y-1), other_pieces) == "w":
                         trajectories.append((elt, -1))
                 if y == 7:
                     trajectories.append((0,-2))
         for traj in trajectories:
             pos = add_vect((x,y),(traj[0], traj[1]))
-            print(pos)
-            empty_square = self.isEmptySquare(pos)
-            if isInBoard(pos) and empty_square != color:
+            empty_square = self.isEmptySquare(pos, other_pieces)
+            if isInBoard(pos) and empty_square == 0:
                 positions.append(pos)
-        print(positions)
+            elif empty_square != color: #there is an opponent piece
+                if traj[0] != 0:    #if its on the side
+                    positions.append(pos)
         return positions
 
-    def isLegalMove(self, piece_index, x, y):
-        piece = self.pieces[piece_index]
+    def pieceCanGo(self, piece, x, y):
         color = piece.color
         match piece.type:
             case 'p':
@@ -277,46 +315,152 @@ class Board():
                 return (x,y) in self.kingMoves(piece.x, piece.y, color)
             case 'q':
                 return (x,y) in [*self.rookMoves(piece.x, piece.y, color), *self.bishopMoves(piece.x, piece.y, color)]
-        return True
+        return False
 
-    def kingInCheck(self, color, pieces):
-        """white king : index = 15, black king : index = 31"""
-        inCheck = False
-        if color == 'w' : index = 15
-        else : index = 31
-        king_x, king_y = pieces[index].x, pieces[index].y
-        for piece in enumerate(pieces) :
+    def canSmallCastle(self, color):
+        dico = {"wHasNotMoved":self.wsc, "bHasNotMoved":self.bsc, "w":1, "b":8}
+        check = self.kingInCheck(color, self.pieces)
+        if (not check) and dico[color+"HasNotMoved"] and self.isEmptySquare((6,dico[color])) == 0 and self.isEmptySquare((7,dico[color])) == 0:
+            k_index = self.kingIndex(color)
+            potBoard1 = board_copy(self.pieces)
+            potBoard1[k_index].x = 6
+            potBoard2 = board_copy(self.pieces)
+            potBoard2[k_index].x = 7
+            if (not self.kingInCheck(color, potBoard1)) and (not self.kingInCheck(color, potBoard2)):
+                return True
+        return False
+
+    def canBigCastle(self, color):
+        dico = {"wHasNotMoved":self.wbc, "bHasNotMoved":self.bbc, "w":1, "b":8}
+        check = self.kingInCheck(color, self.pieces)
+        if (not check) and dico[color+"HasNotMoved"] and self.isEmptySquare((3,dico[color])) == 0 and self.isEmptySquare((4,dico[color])) == 0:
+            k_index = self.kingIndex(color)
+            potBoard1 = board_copy(self.pieces)
+            potBoard1[k_index].x = 3
+            potBoard2 = board_copy(self.pieces)
+            potBoard2[k_index].x = 4
+            if (not self.kingInCheck(color, potBoard1)) and (not self.kingInCheck(color, potBoard2)):
+                return True
+        return False
+
+    def kingIndex(self, color):
+        """global index"""
+        for k,elt in enumerate(self.pieces):
+            if elt.color == color and elt.type == 'k':
+                return k
+        return None
+
+    def castle(self,color, type):
+        dico = {'w':1, 'b':8, "small":(6,7), "big":(4,3), 's2':8, 'b2':1}
+        rook_pos = (dico[type[0]+'2'],dico[color])
+        king_pos = (5,dico[color])
+        for k,piece in enumerate(self.pieces):
+            if (piece.x, piece.y) == rook_pos:
+                piece.x = dico[type][0]
+                piece.coord_x, piece.coord_y = board.get_coords(dico[type][0], piece.y)
+                if color == 'w':
+                    self.white_pieces[k].x = piece.x
+                    self.white_pieces[k].coord_x, self.white_pieces[k].coord_y = board.get_coords(dico[type][0], piece.y)
+                else:
+                    self.black_pieces[k - len(self.white_pieces)].x = piece.x
+                    self.black_pieces[k - len(self.white_pieces)].coord_x, self.black_pieces[k - len(self.white_pieces)].coord_y = board.get_coords(dico[type][0], piece.y)
+
+            elif (piece.x, piece.y) == king_pos:
+                piece.x = dico[type][1]
+                piece.coord_x, piece.coord_y = board.get_coords(dico[type][1], piece.y)
+                if color == 'w':
+                    self.white_pieces[k].x = piece.x
+                    self.white_pieces[k].coord_x, self.white_pieces[k].coord_y = board.get_coords(dico[type][1], piece.y)
+                else:
+                    self.black_pieces[k - len(self.white_pieces)].x = piece.x
+                    self.black_pieces[k - len(self.white_pieces)].coord_x, self.black_pieces[k - len(self.white_pieces)].coord_y = board.get_coords(dico[type][1], piece.y)
+
+    def updateCastle(self, piece):
+        """piece has just moved, update the possibility of castling"""
+        match piece.color:
+            case 'w':
+                if piece.type == 'k':
+                    self.wsc = False
+                    self.wbc = False
+                elif piece.type == 'r':
+                    if piece.x == 1:
+                        self.wbc = False
+                    elif piece.x == 8:
+                        self.wsc = False
+            case 'b':
+                if piece.type == 'k':
+                    self.bsc = False
+                    self.bbc = False
+                elif piece.type == 'r':
+                    if piece.x == 1:
+                        self.bbc = False
+                    elif piece.x == 8:
+                        self.bsc = False
+
+    def triesToCastle(self,piece, x, y):
+        return piece.type == 'k' and piece.x == 5 and ((piece.y == 1 and y == 1) or (piece.y == 8 and y == 8)) and (x == piece.x + 2 or x == piece.x - 2)
+
+    def isLegalMove(self, piece_index, x, y):
+        """checks if the move piece to (x,y) is a legal move"""
+        piece = self.pieces[piece_index]
+        if piece.type == 'k':
+            if self.triesToCastle(piece, x, y):   #maybe tries to castle:
+                if x == 7:
+                    return self.canSmallCastle(piece.color)
+                elif x == 3:
+                    return self.canBigCastle(piece.color)
+
+        return (not self.verifyForCheckWithMove(piece_index, x, y)) and self.pieceCanGo(piece, x, y)
+
+    def verifyForCheckWithMove(self, piece_index, x, y):
+        """verifies if moving the piece in (x,y) puts you in check"""
+        piece = self.pieces[piece_index]
+        new_board = board_copy(self.pieces)
+        glob_index, loc_index = self.getPieceIndexes(x, y)    #we will look if there is a piece there
+        if glob_index != -1:
+            if self.pieceCanGo(piece, x, y):    #if we can go there, we look at what will happen if we take it
+                new_board.pop(glob_index)
+                if glob_index < piece_index:
+                    piece_index -= 1
+        new_board[piece_index].x = x
+        new_board[piece_index].y = y
+        return self.kingInCheck(piece.color, new_board)    #we look if we are in check by doing this move
+
+    def kingInCheck(self, color, new_board):
+        """verifies if the 'color' king is in check or not on the board 'new_board' """
+        k_index = -1
+        k = 0
+        while k_index == -1:
+            piece = new_board[k]
+            if piece.surname == color + 'k': k_index = k
+            else : k+=1
+        king_x, king_y = new_board[k_index].x, new_board[k_index].y
+        for piece in new_board :
             if piece.color != color:
                 px, py = piece.x, piece.y
                 match piece.type :
                     case 'p':
-                        if (king_x == px - 1 and king_y == py + 1) or (king_x == px + 1 and king_y == py + 1):
+                        if (king_x, king_y) in self.pawnMoves(px, py, piece.color, new_board) and (king_x != px):   #only pawn attack moves
                             return True
                     case 'q':
-                        if rookCanGo(self, piece.x, piece.y, king_x, king_y, pieces) or bishopCanGo(self, piece.x, piece.y, king_x, king_y, pieces):    #TODO : a optimiser : appeler ces fcts une fois et sauvergarder leur resultat
+                        if (king_x, king_y) in self.rookMoves(px, py, piece.color, new_board) or (king_x, king_y) in self.bishopMoves(px, py, piece.color, new_board):
                             return True
                     case 'r':
-                        if rookCanGo(self, piece.x, piece.y, king_x, king_y, pieces):
+                        if (king_x, king_y) in self.rookMoves(px, py, piece.color, new_board):
                             return True
                     case 'b':
-                        if bishopCanGo(self, piece.x, piece.y, king_x, king_y, pieces):
+                        if (king_x, king_y) in self.bishopMoves(px, py, piece.color, new_board):
                             return True
                     case 'n':
-                        if (king_x, king_y) in [(px-1,py+2),(px+1,py+2),(px-1,py-2),(px+1,py-2),(px-2,py+1),(px-2,py-1),(px+2,py-1),(px+2,py+1)]:
+                        if (king_x, king_y) in self.knightMoves(px, py, piece.color, new_board):
                             return True
                     case 'k':
-                        None
+                        if (king_x, king_y) in self.kingMoves(px, py, piece.color, new_board):
+                            return True
         return False
-
-    def isDraw(self):
-        return 0
 
 board = Board()
 
-def animate():
-    if board.turn == 0: #white to play
-        None
-    return 0
 # Fonction principale
 def main():
     clock = pygame.time.Clock()
@@ -347,17 +491,26 @@ def main():
                     new_x, new_y = board.get_board_position(p.coord_x + PIECES_SIZE/2, p.coord_y + PIECES_SIZE/2)
                     
                     if p.color == board.turn and board.isLegalMove(moving_piece, new_x, new_y):
-                        glob_index, loc_index = board.getPieceIndexes((new_x, new_y))
+                        glob_index, loc_index = board.getPieceIndexes(new_x, new_y)
                         if glob_index != -1:    #there is an opposite piece
-                            board.pieces.pop(glob_index)
-                            if p.color == 'w':
-                                board.white_pieces.pop(loc_index)
+                            board.capture(glob_index)
+                        if board.triesToCastle(p, new_x, new_y):
+                            if new_x == 7:
+                                board.castle(p.color, "small")
                             else:
-                                board.black_pieces.pop(loc_index)
-                        p.x, p.y = new_x, new_y
-                        p.coord_x, p.coord_y = board.get_coords(new_x, new_y)
-                        
+                                board.castle(p.color, "big")
+                        else:
+                            p.x, p.y = new_x, new_y
+                            p.coord_x, p.coord_y = board.get_coords(new_x, new_y)
+
+                        if p.type == 'k' or p.type == 'r':
+                            board.updateCastle(p)
+
                         board.changeTurn()
+                        if board.isCheckmate(board.turn):
+                            print("checkmate !")
+                        if board.isStalemate(board.turn):
+                            print("stalemate...")
                         moving_piece = None
                     else:
                         p.coord_x, p.coord_y = board.get_coords(p.x, p.y)
