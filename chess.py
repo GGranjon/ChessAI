@@ -157,8 +157,8 @@ class Board():
         if self.canSmallCastle(color):
             allMoves.append("O-O")
         if self.canBigCastle(color):
-            allMoves.append("O-O-O")
-            
+            allMoves.append("O-O-O") 
+
         if color == 'w':
             for k,piece in enumerate(self.white_pieces):
                 moves = [(k,elt) for elt in self.pieceMoves(piece) if not self.verifyForCheckWithMove(k,elt[0], elt[1])]
