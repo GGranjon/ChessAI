@@ -10,7 +10,7 @@ IMG_FACTOR = 0.65
 SQUARE_SIZE = WIDTH // COLS
 PIECES_SIZE = pygame.image.load('images/bp.png').get_width()*IMG_FACTOR
 OFFSET = (SQUARE_SIZE - PIECES_SIZE)/2
-FPS = 120
+FPS = 60
 
 # Colors
 WHITE = (235, 235, 235)
@@ -175,29 +175,61 @@ class Board():
                 allMoves += moves
         return allMoves
 
-    def whoCanGo(self, color, x, y, type, new_board = None):
+    def allMovesChessNotation(self, color, new_board = None):
+        """the given board is the one before the changes"""
+        chessNot = []
+        boards = {0:self.pieces, 1:new_board}
+        dico = {'b':8, 'w':1}
+        direction = {'b':-1, 'w':1}
+        board = boards[new_board!=None]
+        allMoves = self.getAllMoves(color, board)
+        for move in allMoves:
+            if move == "O-O" or move == "O-O-O":
+                moveCN = self.chessNotation(move,5, dico[color], color, None, False, board)
+            elif type(move[0]) != int:  #en passant
+                moveCN = self.chessNotation(move, move[0][0], move[0][1], color, (move[0][0]+move[1], move[0][1]+direction[color]), False, board)
+            else:
+                old_x = board[move[0]].x
+                old_y = board[move[0]].y
+                piece_was_taken = None
+                if (self.isEmptySquare(move[1], board) != color) and (self.isEmptySquare(move[1], board) != 0):
+                    piece_was_taken = move[1]
+                promoted = self.isUppingPawn(board[move[0]])
+                moveCN = self.chessNotation(move, old_x, old_y, color,piece_was_taken, promoted, board)
+            chessNot.append(moveCN)
+        
+        return chessNot
+
+
+    def whoCanGo(self, color, x, y, piece_type, board = None):
         """return the list of indexes of pieces that can go to that square"""
-        allMoves = self.getAllMoves(color, new_board)
+        """allMoves = self.getAllMoves(color, board)
         list = []
         for elt in allMoves:
-            if elt[1][0] == x and elt[1][1] == y:
-                if new_board[elt[0]].type == type:
-                    list.append(elt[0])
-        print(list, allMoves)
+            if type(elt[1]) != int:
+                if elt[1][0] == x and elt[1][1] == y and board[elt[0]].type == piece_type:
+                        list.append(elt[0])"""
+        list = []
+        for i,elt in enumerate(board):
+            if elt.color == color and elt.type == piece_type:
+                if self.pieceCanGo(elt, x, y,board):
+                    list.append(i)
+
         return list
 
-    def chessNotation(self, move, old_x, old_y, color, piece_was_taken = False, promoted = False):
-        """this command must be used after the move has been played"""
+    def chessNotation(self, move, old_x, old_y, color, piece_was_taken = None, promoted = False, board=None):
+        boards = {0:self.pieces, 1:board}
         opponent_color = {'w':'b', 'b':'w'}
         direction = {'b': -1, 'w': 1}
 
         notation = ""
-        if self.isCheckmate(opponent_color[color]):
+        if self.isCheckmate(opponent_color[color],boards[board!=None]):
             notation+="#"
-        elif self.kingInCheck(opponent_color[color], board_copy(self.pieces)):
+        elif self.kingInCheck(opponent_color[color],boards[board!=None]):   #maybe use verifycheckwithmove
             notation += "+"
         if move == "O-O" or move == "O-O-O":    #castle
             return move + notation
+
         if type(move[0]) != int:    #en passant
             return toChessCoord(move[0][0])+"x"+toChessCoord(move[0][0]+move[1], move[0][1] + direction[color]) + notation      #exf6
         
@@ -207,20 +239,19 @@ class Board():
             piece = self.pieces[move[0]]
             piece_type = piece.type
             new_coord = toChessCoord(move[1][0], move[1][1])
-            new_board = board_copy(self.pieces)
+            new_board = board_copy(boards[board!=None])
             new_board[move[0]].x = old_x
             new_board[move[0]].y = old_y
-            if piece_was_taken:
-                new_board.append(Piece(opponent_color[color], 'P', move[1][0], move[1][1]))
-
+            if piece_was_taken != None:
+                new_board.append(Piece(opponent_color[color], 'P', piece_was_taken[0], piece_was_taken[1]))
             if len(self.whoCanGo(color, move[1][0], move[1][1], piece_type, new_board)) == 1:
-                if piece_was_taken:
+                if piece_was_taken != None:
                         notation = piece.type + 'x' + new_coord + notation
                 else:
                     notation = piece.type + new_coord + notation
             else:
                 #there is 2 different pieces of the same type that could have went there
-                None
+                notation = "case not done"
         notation = notation.replace('P', '')
         if notation[0] == 'x':
             notation = toChessCoord(old_x) + notation
@@ -342,14 +373,14 @@ class Board():
                 for elt in [-1,1]:
                     if y<=7 and self.isEmptySquare((x+elt,y+1), other_pieces) == "b":
                         trajectories.append((elt, 1))
-                if y == 2:  #first move
+                if y == 2 and self.isEmptySquare((x, y+1)) == 0:  #first move
                     trajectories.append((0,2))
             case 'b':
                 trajectories.append((0,-1))
                 for elt in [-1,1]:
                     if y >=2 and self.isEmptySquare((x+elt,y-1), other_pieces) == "w":
                         trajectories.append((elt, -1))
-                if y == 7:
+                if y == 7 and self.isEmptySquare((x, y-1)) == 0:
                     trajectories.append((0,-2))
         for traj in trajectories:
             pos = add_vect((x,y),(traj[0], traj[1]))
@@ -361,21 +392,21 @@ class Board():
                     positions.append(pos)
         return positions
 
-    def pieceCanGo(self, piece, x, y):
+    def pieceCanGo(self, piece, x, y, board = None):
         color = piece.color
         match piece.type:
             case 'P':
-                return (x,y) in self.pawnMoves(piece.x, piece.y, color)
+                return (x,y) in self.pawnMoves(piece.x, piece.y, color, board)
             case 'R':
-                return (x,y) in self.rookMoves(piece.x, piece.y, color)
+                return (x,y) in self.rookMoves(piece.x, piece.y, color, board)
             case 'B':
-                return (x,y) in self.bishopMoves(piece.x,piece.y,color)
+                return (x,y) in self.bishopMoves(piece.x,piece.y,color, board)
             case 'N':
-                return (x,y) in self.knightMoves(piece.x,piece.y,color)
+                return (x,y) in self.knightMoves(piece.x,piece.y,color, board)
             case 'K':
-                return (x,y) in self.kingMoves(piece.x, piece.y, color)
+                return (x,y) in self.kingMoves(piece.x, piece.y, color, board)
             case 'Q':
-                return (x,y) in [*self.rookMoves(piece.x, piece.y, color), *self.bishopMoves(piece.x, piece.y, color)]
+                return (x,y) in [*self.rookMoves(piece.x, piece.y, color, board), *self.bishopMoves(piece.x, piece.y, color, board)]
         return False
 
     def canSmallCastle(self, color, new_board = None):
@@ -497,7 +528,7 @@ class Board():
         else: self.black_pieces.pop(index[1])
 
     def isUppingPawn(self, piece):
-        return (piece.color == 'b' and piece.y == 1) or (piece.color == 'w' and piece.y == 8)
+        return (piece.type == 'P' and piece.y == 1) or (piece.type == 'P' and piece.y == 8)
 
     def upThePawn(self, glob_index, loc_index):
         piece = self.pieces[glob_index]
@@ -513,10 +544,15 @@ class Board():
             self.white_pieces[loc_index].type = 'Q'
             self.white_pieces[loc_index].surname = piece.color + 'Q'
             self.white_pieces[loc_index].image = self.pieces[glob_index].image
+
+    def isEnPassant(self, piece, x, y):
+        direction = {'b':-1, 'w':1}
+        return [(piece.x, piece.y),x-piece.x] in self.enPassant and y == piece.y + direction[piece.color]
+    
     def isLegalMove(self, piece_index, x, y):
         """checks if the move piece to (x,y) is a legal move"""
         piece = self.pieces[piece_index]
-        if [(piece.x, piece.y),x-piece.x] in self.enPassant:
+        if self.isEnPassant(piece, x, y):
             self.doEnPassant(x,y, piece.color)
             return True
         if piece.type == 'K':
@@ -608,14 +644,16 @@ def main():
                     new_x, new_y = board.get_board_position(p.coord_x + PIECES_SIZE/2, p.coord_y + PIECES_SIZE/2)
                     
                     if p.color == board.turn and board.isLegalMove(moving_piece, new_x, new_y):
-                        pieceTaken = False
+                        pieceTaken = None
+                        move = ()
+                        
                         glob_index, loc_index = board.getPieceIndexes(new_x, new_y)
                         if glob_index != -1:    #there is an opposite piece
                             board.capture(glob_index)
-                            pieceTaken = True
+                            pieceTaken = (new_x, new_y)
                         old_x, old_y = p.x, p.y
-                        board.canEnPassant(p, new_x, new_y)     #update the possibility of en passant after the move
-                        move = ()
+                        
+  
                         if board.triesToCastle(p, new_x, new_y):
                             if new_x == 7:
                                 board.castle(p.color, "small")
@@ -624,12 +662,16 @@ def main():
                                 board.castle(p.color, "big")
                                 move = "O-O-O"
                         else:
-                            p.x, p.y = new_x, new_y
-                            print(p.type)
+                            if board.isEnPassant(p, new_x, new_y):
+                                move = [(p.x, p.y),new_x-p.x]
+                                board.canEnPassant(p, new_x, new_y)     #update the possibility of en passant after the move
+                                p.x, p.y = new_x, new_y
+                            else:
+                                board.canEnPassant(p, new_x, new_y)     #update the possibility of en passant after the move
+                                p.x, p.y = new_x, new_y
+                                move = (board.getPieceIndexes(new_x, new_y)[0], (new_x, new_y))
                             promoted = p.type == 'P' and (p.y == 1 or p.y == 8)
-                            print(promoted)
                             p.coord_x, p.coord_y = board.get_coords(new_x, new_y)
-                            move = (board.getPieceIndexes(new_x, new_y)[0], (new_x, new_y))
 
                         if board.isUppingPawn(p):
                             (glob_index, loc_index) = board.getPieceIndexes(new_x, new_y)
@@ -638,7 +680,7 @@ def main():
                             board.updateCastle(p)
                         board.changeTurn()
                         print(board.chessNotation(move, old_x, old_y, p.color, pieceTaken, promoted))
-                        #print(board.getAllMoves(board.turn))
+                        print(board.allMovesChessNotation(board.turn))
                         if board.isCheckmate(board.turn):
                             print("checkmate !")
                         if board.isStalemate(board.turn):
