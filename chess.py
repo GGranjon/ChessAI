@@ -1,28 +1,24 @@
-import pygame
-import sys
 from math import floor
 from copy import deepcopy
 from time import sleep
 from random import choice
-pygame.init()
+import pygame
 
 # Parameters
 WIDTH, HEIGHT = 800, 800
 ROWS, COLS = 8, 8
 IMG_FACTOR = 0.65
-SQUARE_SIZE = WIDTH // COLS
 PIECES_SIZE = pygame.image.load('images/bp.png').get_width()*IMG_FACTOR
+SQUARE_SIZE = WIDTH // COLS
 OFFSET = (SQUARE_SIZE - PIECES_SIZE)/2
-FPS = 120
+
 
 # Colors
 WHITE = (235, 235, 235)
 BLACK = (0, 0, 0)
 BROWN = (150, 77, 34)
 #file = open("historic_captures.txt", 'a')
-# Window
-#win = pygame.display.set_mode((WIDTH, HEIGHT))
-#pygame.display.set_caption("Jeu d'Échecs")
+
 
 def add_vect(u,v):
     return [u[0]+v[0], u[1]+v[1]]
@@ -106,7 +102,7 @@ class Board():
         else:
             self.turn = 'w'
 
-    def draw_board(self):   #OK
+    def draw_board(self, win):   #OK
         win.fill(WHITE)
         for row in range(ROWS):
             for col in range(COLS):
@@ -115,7 +111,7 @@ class Board():
                 else:
                     pygame.draw.rect(win, BROWN, (col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
-    def draw_pieces(self):   #OK
+    def draw_pieces(self, win):   #OK
         for color in self.piecesPositions:
             for type in self.piecesPositions[color]:
                 for index in self.piecesPositions[color][type]:
@@ -553,16 +549,16 @@ class Board():
             self.nb_moves = 0
         if self.nb_moves == 50:
             print('Draw 50 moves rule')
-            #reset(self)
+            reset(self)
         self.updateCastle(id, new_x, new_y)
         self.changeTurn()
         if self.isCheckmate(self.turn, self.pieces, self.board):
             print("checkmate !")
             nb_checkmate += 1
-            #reset(self)
+            reset(self)
         if self.isStalemate(self.turn, self.pieces, self.board):
             print("stalemate...")
-            #reset(self)
+            reset(self)
         #print(self.getAllMoves(board.turn, self.pieces, self.board))
         id = None
 
@@ -584,28 +580,6 @@ def nb_moves(depth, board:Board):
                 print(nb)
     return nb
 
-def waitKey():
-    waiting_for_key = True
-    while waiting_for_key:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-                waiting_for_key = False
-                return
-            elif event.type == pygame.KEYDOWN:
-                waiting_for_key = False
-                print("Touche appuyee :", pygame.key.name(event.key).upper())
-                return pygame.key.name(event.key).upper()
-class Bot():
-    def __init__(self, color):
-        self.color = color
-    
-    def getMove(self, board:Board):
-        moves = board.getAllMoves(board.turn, board.pieces, board.board)
-        move = choice(moves)
-        return move
-
-board = Board()
 
 def reset(board:Board):
     board.load_pieces()
@@ -617,67 +591,3 @@ def reset(board:Board):
     board.playMove('bK1',6,8)
     board.playMove('bP3', 3,6)
     board.turn = 'w'
-#reset(board)  
-print(nb_moves(5, board))
-print(nb_capture, nb_passant, nb_castle, nb_promote, nb_checkmate)
-#file.close()
-bot = Bot('b')
-bot2 = Bot('w')
-def main():
-    clock = pygame.time.Clock()
-    id = None
-    dragging = False
-    running = True
-    board.draw_board()
-    while running:
-        clock.tick(FPS)
-        
-        """if True or board.turn == bot.color:
-            move = bot.getMove(board)
-            print(move, board.board, "\n")
-            if len(move) == 3:
-                board.playMove(move[0], move[1][0], move[1][1], move[2])
-            else:
-                board.playMove(move[0], move[1][0], move[1][1])"""
-
-        for event in pygame.event.get():    # EVENTS
-            if event.type == pygame.QUIT:
-                running = False
-
-            elif event.type == pygame.MOUSEBUTTONDOWN:    # Check if we click on a piece
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                pos_x, pos_y = board.get_board_position(mouse_x, mouse_y)
-                if board.board[pos_x][pos_y] != None:
-                        dragging = True
-                        id = board.board[pos_x][pos_y]
-            
-            elif event.type == pygame.MOUSEBUTTONUP:    # Check if we place the piece
-                if id != None:# and board.turn == 'w':
-                    dragging = False
-                    pieces_pos = board.piecesPositions[id[0]][id[1]][id[2]]
-                    new_x, new_y = board.get_board_position(pieces_pos[0] + PIECES_SIZE/2, pieces_pos[1] + PIECES_SIZE/2)
-                    
-                    if id[0] == board.turn and board.isLegalMove(id, new_x, new_y, board.pieces, board.board):
-                        if id[1] == 'P' and (new_y == 8 or new_y == 1):
-                            upType = waitKey()
-                            board.playMove(id, new_x, new_y, upType)
-                        else:
-                            board.playMove(id, new_x, new_y)
-
-                    else:
-                        board.piecesPositions[id[0]][id[1]][id[2]] = board.get_coords(board.pieces[id[0]][id[1]][id[2]])
-
-            elif event.type == pygame.MOUSEMOTION:    # Check if we move the piece
-                if dragging:
-                    board.piecesPositions[id[0]][id[1]][id[2]][0], board.piecesPositions[id[0]][id[1]][id[2]][1] = pygame.mouse.get_pos()
-                    board.piecesPositions[id[0]][id[1]][id[2]][0]-=PIECES_SIZE/2
-                    board.piecesPositions[id[0]][id[1]][id[2]][1]-=PIECES_SIZE/2
-        
-        board.draw_board()
-        board.draw_pieces()
-        pygame.display.flip()
-    pygame.quit()
-    sys.exit()
-
-"""if __name__ == "__main__":
-    main()"""
