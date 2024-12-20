@@ -3,7 +3,7 @@ from copy import deepcopy
 from time import sleep
 from random import choice
 import pygame
-
+from time import time
 # Parameters
 WIDTH, HEIGHT = 800, 800
 ROWS, COLS = 8, 8
@@ -28,12 +28,12 @@ def isInBoard(vect):
 
 opp = {'w':'b', 'b':'w'}
 
-nb_castle = 0
-nb_passant = 0
-nb_capture = 0
-nb_check = 0
-nb_promote = 0
-nb_checkmate = 0
+piece_images = {}
+# load and scale each piece's image
+surnames = ['bP', 'bN', 'bB', 'bR', 'bQ', 'bK', 'wP', 'wN', 'wB', 'wR', 'wQ', 'wK']
+for surname in surnames:
+    piece_images[surname] = pygame.image.load(f'images/{surname}.png')
+    piece_images[surname] = pygame.transform.smoothscale(piece_images[surname], ((piece_images[surname]).get_width()*IMG_FACTOR, (piece_images[surname]).get_height()*IMG_FACTOR))
 
 class Board():
     def __init__(self):
@@ -46,7 +46,6 @@ class Board():
         self.nb_moves = 0
         self.castle = {'w':{'s':True, 'b':True}, 'b':{'s':True, 'b':True}}
         self.enPassant = []
-        self.piece_images = {}
         self.pieces = {'w':{'P':{'1':[1,2], '2':[2,2],'3':[3,2],'4':[4,2],'5':[5,2],'6':[6,2],'7':[7,2],'8':[8,2]},
                             'R':{'1':[1,1], '2':[8,1]},
                             'N':{'1':[2,1], '2':[7,1]},
@@ -90,19 +89,14 @@ class Board():
                       7:{1:'wN2', 2:'wP7', 3:None, 4:None, 5:None, 6:None, 7:'bP7', 8:'bN2'},
                       8:{1:'wR2', 2:'wP8', 3:None, 4:None, 5:None, 6:None, 7:'bP8', 8:'bR2'}}
 
-        # load and scale each piece's image
-        surnames = ['bP', 'bN', 'bB', 'bR', 'bQ', 'bK', 'wP', 'wN', 'wB', 'wR', 'wQ', 'wK']
-        for surname in surnames:
-            self.piece_images[surname] = pygame.image.load(f'images/{surname}.png')
-            self.piece_images[surname] = pygame.transform.smoothscale(self.piece_images[surname], ((self.piece_images[surname]).get_width()*IMG_FACTOR, (self.piece_images[surname]).get_height()*IMG_FACTOR))
         
-    def changeTurn(self):   #OK
+    def changeTurn(self):
         if self.turn == 'w':
             self.turn = 'b'
         else:
             self.turn = 'w'
 
-    def draw_board(self, win):   #OK
+    def draw_board(self, win):
         win.fill(WHITE)
         for row in range(ROWS):
             for col in range(COLS):
@@ -111,24 +105,24 @@ class Board():
                 else:
                     pygame.draw.rect(win, BROWN, (col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
-    def draw_pieces(self, win):   #OK
+    def draw_pieces(self, win):
         for color in self.piecesPositions:
             for type in self.piecesPositions[color]:
                 for index in self.piecesPositions[color][type]:
                     if self.piecesPositions[color][type][index] != None:
                         [x,y] = self.piecesPositions[color][type][index]
                         surname = color+type
-                        win.blit(self.piece_images[surname], (x + OFFSET, y + OFFSET))
+                        win.blit(piece_images[surname], (x + OFFSET, y + OFFSET))
 
-    def get_board_position(self, coord_x, coord_y):   #OK
+    def get_board_position(self, coord_x, coord_y):
         """returns the position of the given coordinates on the chess board (from (1,1) to (8,8))"""
         return (floor(1 + coord_x/SQUARE_SIZE), floor(9 - coord_y/SQUARE_SIZE))
     
-    def get_coords(self, square):   #OK
+    def get_coords(self, square):
         """returns the coordinates given the position"""
         return [(square[0]-1)*SQUARE_SIZE, (8-square[1])*SQUARE_SIZE]
     
-    def pieceMoves(self, id, pieces, board):   #OK
+    def pieceMoves(self, id, pieces, board):
         if pieces[id[0]][id[1]][id[2]] == None:
             return []
         type = id[1]
@@ -146,26 +140,24 @@ class Board():
             case 'Q':
                 return [*self.rookMoves(id, pieces, board), *self.bishopMoves(id, pieces, board)]
 
-    def pieceCanGo(self, id, x, y, pieces, board):  #OK
+    def pieceCanGo(self, id, x, y, pieces, board):
         return [x,y] in self.pieceMoves(id, pieces, board)
     
     def getAllMoves(self,color, pieces, board):  #currently en passant not taken into account
         allMoves = []
         direction = {'w':1, 'b':-1}
-        if self.canSmallCastle(color, pieces, board):
-            print("SMALL CASTLE")
+        if self.canSmallCastle(color, pieces, board):   #ok
             initial = {'b':8, 'w':1}
             init = initial[color]
             allMoves.append([color+'K1', [7,init]])
-        if self.canBigCastle(color, pieces, board):
-            print("BIG CASTLE")
+        if self.canBigCastle(color, pieces, board): #ok
             initial = {'b':8, 'w':1}
             init = initial[color]
             allMoves.append([color+'K1', [3,init]])
         for elt in self.enPassant:
             id = board[elt[0][0]][elt[0][1]]
             if id != None and id[0] == color and id[1] == 'P' and not self.verifyCheckEnPassant(id, elt[0][0] + elt[1], elt[0][1] + direction[color], pieces, board):
-                print("EN PASSANT")
+                #print("EN PASSANT")
                 allMoves.append([id, [elt[0][0] + elt[1], elt[0][1] + direction[color]]])
         for type in pieces[color]:
             for index in pieces[color][type]:
@@ -175,7 +167,7 @@ class Board():
                     if id[1] == 'P' and (move[1] == 8 or move[1] == 1) and not self.verifyForCheckWithMove(id, move[0], move[1], pieces, board):
                         for upType in ['Q', 'N', 'B', 'R']:
                             allMoves.append([id, move, upType])
-                            print("UP THE PAWN")
+                            #print("UP THE PAWN")
                     elif not self.verifyForCheckWithMove(id, move[0], move[1], pieces, board):
                         allMoves.append([id,move])
         return allMoves
@@ -189,14 +181,14 @@ class Board():
         """verify is the color given got stalemate, i.e it does not have any moves but is not in check"""
         return self.getAllMoves(color, pieces, board) == [] and not self.kingInCheck(color, pieces, board)
 
-    def capture(self, id):   #OK
+    def capture(self, id):
         """Deletes the id piece"""
         [x,y] = self.pieces[id[0]][id[1]][id[2]]
         self.pieces[id[0]][id[1]][id[2]] = None
         self.piecesPositions[id[0]][id[1]][id[2]] = None
         self.board[x][y] = None
     
-    def bishopMoves(self, id, pieces, board):   #OK
+    def bishopMoves(self, id, pieces, board):
         positions = []
         trajectories = [(1,1), (-1,-1), (1,-1), (-1,1)]
         color = id[0]
@@ -215,7 +207,7 @@ class Board():
                     positions.append(pos)
         return positions
     
-    def rookMoves(self, id, pieces, board):   #OK
+    def rookMoves(self, id, pieces, board):
         positions = []
         trajectories = [(1,0), (-1,0), (0,-1), (0,1)]
         color = id[0]
@@ -234,7 +226,8 @@ class Board():
                     positions.append(pos)
         return positions
                 
-    def kingMoves(self, id, pieces, board):   #OK
+    def kingMoves(self, id, pieces, board):
+        """return the list of board coordinates where the king can go"""
         positions = []
         trajectories = [(1,0), (-1,0), (0,-1), (0,1), (1,1), (-1,-1), (1,-1), (-1,1)]
         color = id[0]
@@ -250,7 +243,8 @@ class Board():
                     positions.append(pos)
         return positions
                 
-    def knightMoves(self, id, pieces, board):   #OK
+    def knightMoves(self, id, pieces, board):
+        """return the list of board coordinates where the knight can go"""
         positions = []
         trajectories = [(2,1), (1,2), (2,-1), (1,-2), (-2,1), (-2,-1), (-1,2), (-1,-2)]
         color = id[0]
@@ -266,7 +260,8 @@ class Board():
                     positions.append(pos)
         return positions
 
-    def pawnMoves(self, id, pieces, board): #OK
+    def pawnMoves(self, id, pieces, board):
+        """return the list of board coordinates where the pawn can go"""
         positions = []
         color = id[0]
         direction = {'w':(1,2), 'b':(-1,7)}
@@ -284,7 +279,8 @@ class Board():
                     positions.append([x+elt, y+direction[color][0]])
         return positions
 
-    def canSmallCastle(self, color, pieces, board, castles = None): #OK
+    def canSmallCastle(self, color, pieces, board, castles = None):
+        """checks if small castle is allowed"""
         if castles == None:
             castles = self.castle
         dico = {'w':1, 'b':8}
@@ -306,7 +302,8 @@ class Board():
             return (not self.kingInCheck(color, potPieces1, potBoard1)) and (not self.kingInCheck(color, potPieces2, potBoard2))
         return False
 
-    def canBigCastle(self, color, pieces, board, castles = None): #OK
+    def canBigCastle(self, color, pieces, board, castles = None):
+        """checks if big castle is allowed"""
         if castles == None:
             castles = self.castle
         dico = {'w':1, 'b':8}
@@ -327,7 +324,8 @@ class Board():
                 return True
         return False
 
-    def do_castle(self,color, type_castle): #OK
+    def do_castle(self,color, type_castle):
+        """makes the move of castling"""
         dico = {'w':1, 'b':8, "small":(6,7), "big":(4,3), 's2':8, 'b2':1}
         if type_castle == "small":
             self.board[5][dico[color]] = None
@@ -349,8 +347,8 @@ class Board():
             self.piecesPositions[color]['K']['1'] = self.get_coords([3,dico[color]])
         return None
 
-    def updateCastle(self, id, x, y): #OK
-        """piece is about to move to (x,y), update the possibility of castling"""
+    def updateCastle(self, id, x, y):
+        """id is about to move to (x,y), update the possibility of castling"""
         color = id[0]
         if id[1] == 'K':    #the king moved
             self.castle[color]['s'] = False
@@ -373,26 +371,21 @@ class Board():
         return None
 
 
-    def triesToCastle(self, id, x, y, pieces): #OK
+    def triesToCastle(self, id, x, y, pieces):
+        """checks if the move is a castle"""
         [px, py] = pieces[id[0]][id[1]][id[2]]
         return id[1] == 'K' and px == 5 and ((py == 1 and y == 1) or (py == 8 and y == 8)) and (x == px + 2 or x == px - 2)
 
-    def canEnPassant(self, id, x, y, pieces): #OK
-        """update after each move the list of pawns that can en passant (id go to x,y)"""
-        if id[1] != 'P':
-            self.enPassant = []
-            return None
-        else:
-            [px,py] = pieces[id[0]][id[1]][id[2]]
+    def updateEnPassant(self, id, px, py, x, y, pieces):
+        """update after each move the list of pawns that can en passant (id go from px, py to x,y)"""
+        self.enPassant = []    #clear
+        if id[1] == 'P':
             if py - y == 2 or py - y == -2:
                 for move in [[[x-1, y],1],[[x+1, y],-1]]:
                     if isInBoard(move[0]):
                         self.enPassant.append(move)
-                return None
-            else:
-                self.enPassant = []
 
-    def doEnPassant(self, id, new_x, new_y): #OK
+    def doEnPassant(self, id, new_x, new_y):
         """eat the pawn, update board, pieces and piecesPositions"""
         dico = {'w':-1, 'b':1}
         old_x, old_y = self.pieces[id[0]][id[1]][id[2]]
@@ -410,11 +403,11 @@ class Board():
         self.piecesPositions[id2[0]][id2[1]][id2[2]] = None
 
     
-    def isUppingPawn(self, id, pieces): #OK
+    def isUppingPawn(self, id, pieces):
         """checks if a pawn needs to be upped"""
         return id[1] == 'P' and (pieces[id[0]][id[1]][id[2]][1] == 1 or pieces[id[0]][id[1]][id[2]][1] == 8)
 
-    def upThePawn(self, id, newType, new_x, new_y): #OK
+    def upThePawn(self, id, newType, new_x, new_y):
         """turns the id pawn into the new type (queen rook bishop knight)"""
         color = id[0]
         type = id[1]
@@ -427,7 +420,7 @@ class Board():
         self.board[new_x][new_y] = color + newType + str(len(self.pieces[color][newType]))
         self.board[x][y] = None
 
-    def isEnPassant(self, id, x, y, pieces): #OK
+    def isEnPassant(self, id, x, y, pieces):
         """checks if a pawn move to (x,y) is in the self.enPassant"""
         if id[1] != 'P': return False
         color = id[0]
@@ -435,7 +428,7 @@ class Board():
         direction = {'b':-1, 'w':1}
         return [[px, py],x-px] in self.enPassant and y == py + direction[color]
     
-    def verifyCheckEnPassant(self, id, x, y, pieces, board):    #maybe put directly in code to optimize
+    def verifyCheckEnPassant(self, id, x, y, pieces, board):
         """checks if doing en passant is going to put your king in check"""
         [px, py] = pieces[id[0]][id[1]][id[2]]
         new_board = deepcopy(board)
@@ -453,7 +446,7 @@ class Board():
         """checks if the move piece to (x,y) is a legal move"""
         color = id[0]
         type = id[1]
-        if self.isEnPassant(id, x, y, pieces):  #plus de verif a faire, verif si roi est check
+        if self.isEnPassant(id, x, y, pieces):
             return not self.verifyCheckEnPassant(id, x, y, pieces, board)
         if type == 'K':
             if self.triesToCastle(id, x, y, pieces):   #maybe tries to castle:
@@ -489,36 +482,23 @@ class Board():
         return False
     
     def playGame(self, list_moves, dt):
+        """allows to visualize a game that has been played, with a time dt between each move"""
         for move in list_moves:
-            board.playMove(self, move)
+            self.playMove(self, *move)
             self.draw_board()
             self.draw_pieces()
             sleep(dt)
             pygame.display.flip()
     
     def playMove(self, id, new_x, new_y, upType = None):
-        global nb_castle
-        global nb_passant
-        global nb_capture
-        global nb_promote
-        global nb_checkmate
-        #global file
         nb_moves_increase = True
-        #if id[0] == 'w' and id[1] == 'P' and new_y == 5:
-        #    print(id, new_x, new_y)
         if self.board[new_x][new_y] != None:    #there is an opposite piece
-            #print("lalala")
-            #file.write(id + " " + self.board[new_x][new_y] + '\n')
             self.capture(self.board[new_x][new_y])
-            nb_capture += 1
-            #print(nb_capture)
-            
             nb_moves_increase = False
         
         old_x, old_y = self.pieces[id[0]][id[1]][id[2]]
         
         if upType != None:
-            nb_promote += 1
             if upType not in ['Q', 'R', 'N', 'B']:
                 self.upThePawn(id, 'Q', new_x, new_y)
             else:
@@ -526,68 +506,47 @@ class Board():
             nb_moves_increase = False
 
         elif self.triesToCastle(id, new_x, new_y, self.pieces): #we try to castle
-            nb_castle += 1
             if new_x == 7:
                 self.do_castle(id[0], "small")
             else:
                 self.do_castle(id[0], "big")
         else:
             if self.isEnPassant(id, new_x, new_y, self.pieces):   #we want to en passant
-                nb_passant += 1
                 self.doEnPassant(id, new_x, new_y) #rm the enpassanted pawn, update the position of the pawn
-                self.enPassant = []
             else:
-                self.canEnPassant(id, new_x, new_y, self.pieces)     #update the possibility of en passant after the move
                 self.pieces[id[0]][id[1]][id[2]] = [new_x, new_y]
                 self.board[new_x][new_y] = id
                 self.board[old_x][old_y] = None
                 self.piecesPositions[id[0]][id[1]][id[2]] = self.get_coords([new_x, new_y]) #update the screen coords
         
+        self.updateEnPassant(id, old_x, old_y, new_x, new_y, self.pieces)     #update the possibility of en passant after the move
+
         if nb_moves_increase:
             self.nb_moves += 1
         else:
             self.nb_moves = 0
         if self.nb_moves == 50:
             print('Draw 50 moves rule')
-            reset(self)
+            #self.reset()
         self.updateCastle(id, new_x, new_y)
+
         self.changeTurn()
         if self.isCheckmate(self.turn, self.pieces, self.board):
             print("checkmate !")
-            nb_checkmate += 1
-            reset(self)
+            #self.reset()
         if self.isStalemate(self.turn, self.pieces, self.board):
             print("stalemate...")
-            reset(self)
-        #print(self.getAllMoves(board.turn, self.pieces, self.board))
-        id = None
+            #self.reset()
+        #print(self.getAllMoves(self.turn, self.pieces, self.board), "\n\n\n")
+        return deepcopy(self)
 
-def nb_moves(depth, board:Board):
-    board.piece_images = None
-    nb = 0
-    moves = board.getAllMoves(board.turn, board.pieces, board.board)
-    if depth == 1 or len(moves) == 0:
-        return len(moves)
-    else:
-        for move in moves:
-            new_board = deepcopy(board)
-            if len(move) == 3:
-                new_board.playMove(move[0], move[1][0], move[1][1], move[2])
-            else:
-                new_board.playMove(move[0], move[1][0], move[1][1])
-            nb += nb_moves(depth-1, new_board)
-            if depth == 5:
-                print(nb)
-    return nb
-
-
-def reset(board:Board):
-    board.load_pieces()
-    board.playMove('wP4', 4,7)
-    board.playMove('wB2', 3,4)
-    board.playMove('wN2', 5,2)
-    board.playMove('bN2', 6,2)
-    board.playMove('bB2', 5,7)
-    board.playMove('bK1',6,8)
-    board.playMove('bP3', 3,6)
-    board.turn = 'w'
+    def reset(self):
+        self.load_pieces()
+        self.playMove('wP4', 4,7)
+        self.playMove('wB2', 3,4)
+        self.playMove('wN2', 5,2)
+        self.playMove('bN2', 6,2)
+        self.playMove('bB2', 5,7)
+        self.playMove('bK1',6,8)
+        self.playMove('bP3', 3,6)
+        self.turn = 'w'

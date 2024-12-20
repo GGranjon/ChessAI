@@ -1,23 +1,16 @@
 import sys
 import pygame
 
-from chess import Board, WIDTH, HEIGHT, PIECES_SIZE
+from chessGame import Board, WIDTH, HEIGHT, PIECES_SIZE
 from bot import Bot
 WIDTH, HEIGHT = 800, 800
 IMG_FACTOR = 0.65
 PIECES_SIZE = pygame.image.load('images/bp.png').get_width()*IMG_FACTOR
 FPS = 120
 
-pygame.init()
-win = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Jeu d'Échecs")
 
 board = Board()
 bot = Bot('w')
-
-#reset(board)  
-#print(nb_moves(5, board))
-#print(nb_capture, nb_passant, nb_castle, nb_promote, nb_checkmate)
 
 def waitKey():
     waiting_for_key = True
@@ -33,6 +26,9 @@ def waitKey():
                 return pygame.key.name(event.key).upper()
 
 def main():
+    pygame.init()
+    win = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Jeu d'Échecs")
     clock = pygame.time.Clock()
     id = None
     dragging = False
@@ -41,7 +37,7 @@ def main():
     while running:
         clock.tick(FPS)
         
-        if True or board.turn == bot.color:
+        if False and board.turn == bot.color:
             move = bot.getMove(board)
             print(move, board.board, "\n")
             if len(move) == 3:
@@ -88,5 +84,5 @@ def main():
     pygame.quit()
     sys.exit()
 
-if __name__ == "__main__":
+if __name__ == "__main__" and 1:
     main()
