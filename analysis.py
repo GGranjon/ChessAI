@@ -107,8 +107,8 @@ def nb_moves_position_parallel(depth, board, verif_board=None):
     moves = board.getAllMoves(board.turn, board.pieces, board.board)
     if len(moves) == 0:  # stop condition
         return 1
-    elif depth == 0:    # stop condition
-        return 1
+    elif depth == 1:    # stop condition
+        return len(moves)
     
     if verif_board != None:
         moves_notation = [Move.from_uci(moveToCoords(move, board.pieces)) for move in moves]
@@ -132,9 +132,10 @@ def nb_moves_position_parallel(depth, board, verif_board=None):
 
 if __name__ == "__main__":
     board = Board()
-    board.setPos1()
-    verif_board = chess.Board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+    #board.setPos1()
+    #verif_board = chess.Board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+    verif_board = chess.Board()
     t0 = time()
-    print("Nombre moves : ", nb_moves_position_parallel(4, board, verif_board))
+    print("Nombre moves : ", nb_moves_position_parallel(5, board, verif_board))
     dt = time() - t0
     print(dt)

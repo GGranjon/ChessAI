@@ -1,9 +1,7 @@
 from math import floor
-from copy import deepcopy
 from time import sleep
-from random import choice
 import pygame
-from time import time
+
 # Parameters
 WIDTH, HEIGHT = 800, 800
 ROWS, COLS = 8, 8
@@ -28,8 +26,8 @@ def isInBoard(vect):
 
 opp = {'w':'b', 'b':'w'}
 
-piece_images = {}
 # load and scale each piece's image
+piece_images = {}
 surnames = ['bP', 'bN', 'bB', 'bR', 'bQ', 'bK', 'wP', 'wN', 'wB', 'wR', 'wQ', 'wK']
 for surname in surnames:
     piece_images[surname] = pygame.image.load(f'images/{surname}.png')
@@ -39,9 +37,8 @@ class Board():
     def __init__(self):
         self.init()
         
-
     def init(self):
-        """initialize each piece : its position, image, type, etc."""
+        """initialize the board"""
         self.turn = 'w'   # white turn
         self.nb_moves = 0
         self.castle = {'w':{'s':True, 'b':True}, 'b':{'s':True, 'b':True}}
@@ -286,19 +283,26 @@ class Board():
         check = self.kingInCheck(color, pieces, board)
         if (not check) and castles[color]['s'] and board[6][dico[color]] == None and board[7][dico[color]] == None:
 
-            potBoard1 = deepcopy(board)
-            potPieces1 = deepcopy(pieces)
-            potBoard1[6][dico[color]] = color + 'K1'
-            potBoard1[5][dico[color]] = None
-            potPieces1[color]['K']['1'] = [6,dico[color]]
+            #we verify if in check on the first castle square
+            board[6][dico[color]] = color + 'K1'
+            board[5][dico[color]] = None
+            pieces[color]['K']['1'] = [6,dico[color]]
 
-            potBoard2 = deepcopy(board)
-            potPieces2 = deepcopy(pieces)
-            potPieces2[color]['K']['1'] = [7,dico[color]]
-            potBoard2[7][dico[color]] = color + 'K1'
-            potBoard2[5][dico[color]] = None
+            inCheck1 = self.kingInCheck(color, pieces, board)
+
+            #we verify if in check on the second castle square
+            board[6][dico[color]] = None
+            board[7][dico[color]] = color + 'K1'
+            pieces[color]['K']['1'] = [7,dico[color]]
+
+            inCheck2 = self.kingInCheck(color, pieces, board)
             
-            return (not self.kingInCheck(color, potPieces1, potBoard1)) and (not self.kingInCheck(color, potPieces2, potBoard2))
+            #we put the board back to its original position
+            board[5][dico[color]] = color + 'K1'
+            board[7][dico[color]] = None
+            pieces[color]['K']['1'] = [5,dico[color]]
+
+            return (not inCheck1) and (not inCheck2)
         return False
 
     def canBigCastle(self, color, pieces, board, castles = None):
@@ -308,19 +312,27 @@ class Board():
         dico = {'w':1, 'b':8}
         check = self.kingInCheck(color, pieces, board)
         if (not check) and castles[color]['b'] and board[2][dico[color]] == None and board[3][dico[color]] == None and board[4][dico[color]] == None:
-            potBoard1 = deepcopy(board)
-            potPieces1 = deepcopy(pieces)
-            potBoard1[3][dico[color]] = color + 'K1'
-            potBoard1[5][dico[color]] = None
-            potPieces1[color]['K']['1'] = [3,dico[color]]
+            
+            #we verify if in check on the first castle square
+            board[4][dico[color]] = color + 'K1'
+            board[5][dico[color]] = None
+            pieces[color]['K']['1'] = [4,dico[color]]
 
-            potBoard2 = deepcopy(board)
-            potPieces2 = deepcopy(pieces)
-            potPieces2[color]['K']['1'] = [4,dico[color]]
-            potBoard2[4][dico[color]] = color + 'K1'
-            potBoard1[2][dico[color]] = None
-            if (not self.kingInCheck(color, potPieces1, potBoard1)) and (not self.kingInCheck(color, potPieces2, potBoard2)):
-                return True
+            inCheck1 = self.kingInCheck(color, pieces, board)
+
+            #we verify if in check on the second castle square
+            pieces[color]['K']['1'] = [3,dico[color]]
+            board[3][dico[color]] = color + 'K1'
+            board[4][dico[color]] = None
+
+            inCheck2 = self.kingInCheck(color, pieces, board)
+
+            #we put the board back to its original position
+            pieces[color]['K']['1'] = [5, dico[color]]
+            board[5][dico[color]] = color + 'K1'
+            board[3][dico[color]] = None
+
+            return (not inCheck1) and (not inCheck2)
         return False
 
     def do_castle(self,color, type_castle):
@@ -422,16 +434,24 @@ class Board():
     def verifyCheckEnPassant(self, id, x, y, pieces, board):
         """checks if doing en passant is going to put your king in check"""
         [px, py] = pieces[id[0]][id[1]][id[2]]
-        new_board = deepcopy(board)
-        new_pieces = deepcopy(pieces)
-        id2 = new_board[x][py]
+        id2 = board[x][py]
 
-        new_board[x][y] = id
-        new_board[px][py] = None
-        new_board[x][py] = None
-        new_pieces[id2[0]][id2[1]][id2[2]] = None
-        new_pieces[id[0]][id[1]][id[2]] = [x,y]
-        return self.kingInCheck(id[0], new_pieces, new_board)
+        #modify the board to check for check
+        board[x][y] = id
+        board[px][py] = None
+        board[x][py] = None
+        pieces[id2[0]][id2[1]][id2[2]] = None
+        pieces[id[0]][id[1]][id[2]] = [x,y]
+
+        #reset the board
+        board[x][y] = None
+        board[px][py] = id
+        board[x][py] = id2
+        pieces[id2[0]][id2[1]][id2[2]] = [x,py]
+        pieces[id[0]][id[1]][id[2]] = [px, py]
+
+        inCheck = self.kingInCheck(id[0], pieces, board)
+        return inCheck
 
     def isLegalMove(self, id, x, y, pieces, board): #OK moyen
         """checks if the move piece to (x,y) is a legal move"""
@@ -449,18 +469,26 @@ class Board():
 
     def verifyForCheckWithMove(self, id, x, y, pieces, board): #OK peut etre mettre direct dans code pr opti
         """verifies if moving the piece in (x,y) puts you in check"""
-        new_board = deepcopy(board)
-        new_pieces = deepcopy(pieces)
-        square = new_board[x][y]
         
-        if square != None:  #There is a piece
-            new_pieces[square[0]][square[1]][square[2]] = None
+        square = board[x][y]
         [px, py] = pieces[id[0]][id[1]][id[2]]
-        new_pieces[id[0]][id[1]][id[2]] = [x,y]
-        new_board[x][y] = id
-        new_board[px][py] = None
 
-        return self.kingInCheck(id[0], new_pieces, new_board)    #we look if we are in check by doing this move
+        if square != None:  #There is a piece
+            pieces[square[0]][square[1]][square[2]] = None
+        pieces[id[0]][id[1]][id[2]] = [x,y]
+        board[x][y] = id
+        board[px][py] = None
+
+        inCheck = self.kingInCheck(id[0], pieces, board)    #we look if we are in check by doing this move
+
+        if square != None:
+            pieces[square[0]][square[1]][square[2]] = [x,y]
+        pieces[id[0]][id[1]][id[2]] = [px,py]
+        board[x][y] = square
+        board[px][py] = id
+        
+
+        return inCheck
 
     def kingInCheck(self, color, pieces, board): #OK
         """verifies if the 'color' king is in check or not on the board"""
@@ -529,7 +557,7 @@ class Board():
             print("stalemate...")
             #self.init()
         #print(self.getAllMoves(self.turn, self.pieces, self.board), "\n\n\n")
-        #return deepcopy(self)
+        return self
 
     def setPos1(self):
         self.init()
