@@ -37,28 +37,28 @@ for surname in surnames:
 
 class Board():
     def __init__(self):
-        self.load_pieces()
+        self.init()
         
 
-    def load_pieces(self):
+    def init(self):
         """initialize each piece : its position, image, type, etc."""
         self.turn = 'w'   # white turn
         self.nb_moves = 0
         self.castle = {'w':{'s':True, 'b':True}, 'b':{'s':True, 'b':True}}
         self.enPassant = []
-        self.pieces = {'w':{'P':{'1':[1,2], '2':[2,2],'3':[3,2],'4':[4,2],'5':[5,2],'6':[6,2],'7':[7,2],'8':[8,2]},
-                            'R':{'1':[1,1], '2':[8,1]},
-                            'N':{'1':[2,1], '2':[7,1]},
+        self.pieces = {'w':{'Q':{'1':[4,1]},
                             'B':{'1':[3,1], '2':[6,1]},
+                            'N':{'1':[2,1], '2':[7,1]},
+                            'R':{'1':[1,1], '2':[8,1]},
                             'K':{'1':[5,1]},
-                            'Q':{'1':[4,1]}},
+                            'P':{'1':[1,2], '2':[2,2],'3':[3,2],'4':[4,2],'5':[5,2],'6':[6,2],'7':[7,2],'8':[8,2]}},
 
-                       'b':{'P':{'1':[1,7], '2':[2,7],'3':[3,7],'4':[4,7],'5':[5,7],'6':[6,7],'7':[7,7],'8':[8,7]},
-                            'R':{'1':[1,8], '2':[8,8]},
-                            'N':{'1':[2,8], '2':[7,8]},
+                       'b':{'Q':{'1':[4,8]},
                             'B':{'1':[3,8], '2':[6,8]},
+                            'N':{'1':[2,8], '2':[7,8]},
+                            'R':{'1':[1,8], '2':[8,8]},
                             'K':{'1':[5,8]},
-                            'Q':{'1':[4,8]}}}
+                            'P':{'1':[1,7], '2':[2,7],'3':[3,7],'4':[4,7],'5':[5,7],'6':[6,7],'7':[7,7],'8':[8,7]}}}
 
         self.piecesPositions = {'w':{'P':{'1':[1,2],'2':[2,2],'3':[3,2],'4':[4,2],'5':[5,2],'6':[6,2],'7':[7,2],'8':[8,2]},
                             'R':{'1':[1,1], '2':[8,1]},
@@ -172,12 +172,11 @@ class Board():
                         allMoves.append([id,move])
         return allMoves
 
-    def isCheckmate(self, color, pieces, board):  #OK
+    def isCheckmate(self, color, pieces, board):
         """verify is the color given is checkmated, i.e it does not have any moves and is in check"""
-
         return self.getAllMoves(color, pieces, board) == [] and self.kingInCheck(color, pieces, board)
 
-    def isStalemate(self, color, pieces, board):  #OK
+    def isStalemate(self, color, pieces, board):
         """verify is the color given got stalemate, i.e it does not have any moves but is not in check"""
         return self.getAllMoves(color, pieces, board) == [] and not self.kingInCheck(color, pieces, board)
 
@@ -387,12 +386,9 @@ class Board():
 
     def doEnPassant(self, id, new_x, new_y):
         """eat the pawn, update board, pieces and piecesPositions"""
-        dico = {'w':-1, 'b':1}
+
         old_x, old_y = self.pieces[id[0]][id[1]][id[2]]
         id2 = self.board[new_x][old_y]
-        for elt in self.enPassant:
-            if elt[0] == [new_x, new_y]:
-                direction = elt[1]
         
         self.board[new_x][new_y] = id
         self.board[old_x][old_y] = None
@@ -401,11 +397,6 @@ class Board():
         self.pieces[id2[0]][id2[1]][id2[2]] = None
         self.piecesPositions[id[0]][id[1]][id[2]] = self.get_coords([new_x, new_y])
         self.piecesPositions[id2[0]][id2[1]][id2[2]] = None
-
-    
-    def isUppingPawn(self, id, pieces):
-        """checks if a pawn needs to be upped"""
-        return id[1] == 'P' and (pieces[id[0]][id[1]][id[2]][1] == 1 or pieces[id[0]][id[1]][id[2]][1] == 8)
 
     def upThePawn(self, id, newType, new_x, new_y):
         """turns the id pawn into the new type (queen rook bishop knight)"""
@@ -520,6 +511,7 @@ class Board():
                 self.piecesPositions[id[0]][id[1]][id[2]] = self.get_coords([new_x, new_y]) #update the screen coords
         
         self.updateEnPassant(id, old_x, old_y, new_x, new_y, self.pieces)     #update the possibility of en passant after the move
+        self.updateCastle(id, new_x, new_y)
 
         if nb_moves_increase:
             self.nb_moves += 1
@@ -527,21 +519,20 @@ class Board():
             self.nb_moves = 0
         if self.nb_moves == 50:
             print('Draw 50 moves rule')
-            #self.reset()
-        self.updateCastle(id, new_x, new_y)
+            #self.init()
 
         self.changeTurn()
         if self.isCheckmate(self.turn, self.pieces, self.board):
             print("checkmate !")
-            #self.reset()
+            #self.init()
         if self.isStalemate(self.turn, self.pieces, self.board):
             print("stalemate...")
-            #self.reset()
+            #self.init()
         #print(self.getAllMoves(self.turn, self.pieces, self.board), "\n\n\n")
-        return deepcopy(self)
+        #return deepcopy(self)
 
-    def reset(self):
-        self.load_pieces()
+    def setPos1(self):
+        self.init()
         self.playMove('wP4', 4,7)
         self.playMove('wB2', 3,4)
         self.playMove('wN2', 5,2)

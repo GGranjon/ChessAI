@@ -30,7 +30,7 @@ def generate_fen(board):
     return fen
 
 nb_moves_per_position = {}
-
+dico = {"Q":chess.QUEEN, "R":chess.ROOK, "B":chess.BISHOP, "N":chess.KNIGHT}
 
 def toChessCoord(x,y):
     dico = {1:"a", 2:'b', 3:"c", 4:"d", 5:"e", 6:"f", 7:"g", 8:"h"}
@@ -39,7 +39,10 @@ def toChessCoord(x,y):
 def moveToCoords(move, pieces):
     id = move[0]
     [px,py] = pieces[id[0]][id[1]][id[2]]
-    return toChessCoord(px,py) + toChessCoord(move[1][0], move[1][1])
+    promotion = ""
+    if len(move) == 3:
+        promotion += move[2].lower()
+    return toChessCoord(px,py) + toChessCoord(move[1][0], move[1][1]) + promotion
 
 def checkMove(verif_board, move:Move):
     return verif_board.is_legal(move)
@@ -51,7 +54,10 @@ def nb_moves_position(depth, current_depth, board, verif_board):
     moves = board.getAllMoves(board.turn, board.pieces, board.board)
     moves_Notation = []
     for move in moves:
-        moves_Notation.append(Move.from_uci(moveToCoords(move, board.pieces)))
+        if len(move) == 2:
+            moves_Notation.append(Move.from_uci(moveToCoords(move, board.pieces)))
+        else:
+            moves_Notation.append(Move.from_uci(moveToCoords(move, board.pieces)))
 
     if depth == 0 or len(moves) == 0:  #stop
         return 1
@@ -98,12 +104,11 @@ def process_move(move, board, depth, verif_board = None, move_notation = None):
         
 
 def nb_moves_position_parallel(depth, board, verif_board=None):
-    nb = 0
     moves = board.getAllMoves(board.turn, board.pieces, board.board)
     if len(moves) == 0:  # stop condition
         return 1
-    elif depth == 1:    # stop condition
-        return len(moves)
+    elif depth == 0:    # stop condition
+        return 1
     
     if verif_board != None:
         moves_notation = [Move.from_uci(moveToCoords(move, board.pieces)) for move in moves]
@@ -125,13 +130,11 @@ def nb_moves_position_parallel(depth, board, verif_board=None):
     return nb
 
 
-
-
 if __name__ == "__main__":
     board = Board()
-    board.reset()
-    #verif_board = chess.Board()
+    board.setPos1()
+    verif_board = chess.Board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
     t0 = time()
-    print("Nombre moves : ", nb_moves_position_parallel(4, board))
+    print("Nombre moves : ", nb_moves_position_parallel(4, board, verif_board))
     dt = time() - t0
     print(dt)

@@ -10,6 +10,7 @@ FPS = 120
 
 
 board = Board()
+board.setPos1()
 bot = Bot('w')
 
 def waitKey():
@@ -39,7 +40,6 @@ def main():
         
         if False and board.turn == bot.color:
             move = bot.getMove(board)
-            print(move, board.board, "\n")
             if len(move) == 3:
                 board.playMove(move[0], move[1][0], move[1][1], move[2])
             else:
