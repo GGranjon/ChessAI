@@ -10,7 +10,7 @@ FPS = 120
 
 
 board = Board()
-board.setPos1()
+board.setPos2()
 bot = Bot('w')
 
 def waitKey():

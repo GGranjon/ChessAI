@@ -15,8 +15,6 @@ OFFSET = (SQUARE_SIZE - PIECES_SIZE)/2
 WHITE = (235, 235, 235)
 BLACK = (0, 0, 0)
 BROWN = (150, 77, 34)
-#file = open("historic_captures.txt", 'a')
-
 
 def add_vect(u,v):
     return [u[0]+v[0], u[1]+v[1]]
@@ -366,9 +364,9 @@ class Board():
             self.castle[color]['b'] = False
             return None
         if id[1] == 'R':    #a rook moved
-            if id[2] == 1:
+            if id[2] == '1':
                 self.castle[color]['b'] = False
-            elif id[2] == 2:
+            elif id[2] == '2':
                 self.castle[color]['s'] = False
         
         opp_square = {'w':8, 'b':1}
@@ -387,7 +385,7 @@ class Board():
         [px, py] = pieces[id[0]][id[1]][id[2]]
         return id[1] == 'K' and px == 5 and ((py == 1 and y == 1) or (py == 8 and y == 8)) and (x == px + 2 or x == px - 2)
 
-    def updateEnPassant(self, id, px, py, x, y, pieces):
+    def updateEnPassant(self, id, px, py, x, y):
         """update after each move the list of pawns that can en passant (id go from px, py to x,y)"""
         self.enPassant = []    #clear
         if id[1] == 'P':
@@ -512,7 +510,7 @@ class Board():
     def playMove(self, id, new_x, new_y, upType = None):
         nb_moves_increase = True
         if self.board[new_x][new_y] != None:    #there is an opposite piece
-            self.capture(self.board[new_x][new_y])
+            self.capture(self.board[new_x][new_y])  #maybe just put the code directly
             nb_moves_increase = False
         
         old_x, old_y = self.pieces[id[0]][id[1]][id[2]]
@@ -538,7 +536,7 @@ class Board():
                 self.board[old_x][old_y] = None
                 self.piecesPositions[id[0]][id[1]][id[2]] = self.get_coords([new_x, new_y]) #update the screen coords
         
-        self.updateEnPassant(id, old_x, old_y, new_x, new_y, self.pieces)     #update the possibility of en passant after the move
+        self.updateEnPassant(id, old_x, old_y, new_x, new_y)     #update the possibility of en passant after the move
         self.updateCastle(id, new_x, new_y)
 
         if nb_moves_increase:
@@ -569,3 +567,22 @@ class Board():
         self.playMove('bK1',6,8)
         self.playMove('bP3', 3,6)
         self.turn = 'w'
+    def setPos2(self):
+        self.init()
+        self.playMove("wN1", 3,3)
+        self.playMove("wN2", 5,5)
+        self.playMove("wQ1", 6,3)
+        self.playMove("wP4", 4,5)
+        self.playMove("wP5", 5,4)
+        self.playMove("wB1", 4,2)
+        self.playMove("wB2", 5,2)
+
+        self.playMove("bN1", 2,6)
+        self.playMove("bN2", 6,6)
+        self.playMove("bP2", 2,4)
+        self.playMove("bP5", 5,6)
+        self.playMove("bP7", 7,6)
+        self.playMove("bP8", 8,3)
+        self.playMove("bB1", 1,6)
+        self.playMove("bB2", 7,7)
+        self.playMove("bQ1", 5,7)

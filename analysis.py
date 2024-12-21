@@ -94,7 +94,7 @@ def process_move(move, board, depth, verif_board = None, move_notation = None):
         else:
             print(verif_board, flush=True)
             print(move, flush= True)
-            raise ValueError("Mouvement illégal détecté")
+            raise ValueError("Mouvement illegal detecte")
     else:
         if len(move) == 3:
                 new_board.playMove(move[0], move[1][0], move[1][1], move[2])
@@ -105,10 +105,12 @@ def process_move(move, board, depth, verif_board = None, move_notation = None):
 
 def nb_moves_position_parallel(depth, board, verif_board=None):
     moves = board.getAllMoves(board.turn, board.pieces, board.board)
-    if len(moves) == 0:  # stop condition
-        return 1
-    elif depth == 1:    # stop condition
+    if len(moves) == 0 and depth != 0:  # stop condition checkmate or draw
+        return 0
+    elif depth == 1:
         return len(moves)
+    #elif depth == 0:    # stop condition profondeur max
+    #    return 1
     
     if verif_board != None:
         moves_notation = [Move.from_uci(moveToCoords(move, board.pieces)) for move in moves]
@@ -134,8 +136,8 @@ if __name__ == "__main__":
     board = Board()
     #board.setPos1()
     #verif_board = chess.Board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
-    verif_board = chess.Board()
+    #verif_board = chess.Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ")
     t0 = time()
-    print("Nombre moves : ", nb_moves_position_parallel(5, board, verif_board))
+    print("Nombre moves : ", nb_moves_position_parallel(5, board))
     dt = time() - t0
     print(dt)
