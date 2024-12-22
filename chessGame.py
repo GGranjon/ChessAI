@@ -55,6 +55,15 @@ class Board():
                             'K':{'1':[5,8]},
                             'P':{'1':[1,7], '2':[2,7],'3':[3,7],'4':[4,7],'5':[5,7],'6':[6,7],'7':[7,7],'8':[8,7]}}}
 
+        self.board = {1:{1:'wR1', 2:'wP1', 3:None, 4:None, 5:None, 6:None, 7:'bP1', 8:'bR1'},
+                      2:{1:'wN1', 2:'wP2', 3:None, 4:None, 5:None, 6:None, 7:'bP2', 8:'bN1'},
+                      3:{1:'wB1', 2:'wP3', 3:None, 4:None, 5:None, 6:None, 7:'bP3', 8:'bB1'},
+                      4:{1:'wQ1', 2:'wP4', 3:None, 4:None, 5:None, 6:None, 7:'bP4', 8:'bQ1'},
+                      5:{1:'wK1', 2:'wP5', 3:None, 4:None, 5:None, 6:None, 7:'bP5', 8:'bK1'},
+                      6:{1:'wB2', 2:'wP6', 3:None, 4:None, 5:None, 6:None, 7:'bP6', 8:'bB2'},
+                      7:{1:'wN2', 2:'wP7', 3:None, 4:None, 5:None, 6:None, 7:'bP7', 8:'bN2'},
+                      8:{1:'wR2', 2:'wP8', 3:None, 4:None, 5:None, 6:None, 7:'bP8', 8:'bR2'}}
+
         self.piecesPositions = {'w':{'P':{'1':[1,2],'2':[2,2],'3':[3,2],'4':[4,2],'5':[5,2],'6':[6,2],'7':[7,2],'8':[8,2]},
                             'R':{'1':[1,1], '2':[8,1]},
                             'N':{'1':[2,1], '2':[7,1]},
@@ -73,16 +82,6 @@ class Board():
             for type in self.piecesPositions[color]:
                 for index in self.piecesPositions[color][type]:
                     self.piecesPositions[color][type][index] = self.get_coords(self.pieces[color][type][index])
-
-
-        self.board = {1:{1:'wR1', 2:'wP1', 3:None, 4:None, 5:None, 6:None, 7:'bP1', 8:'bR1'},
-                      2:{1:'wN1', 2:'wP2', 3:None, 4:None, 5:None, 6:None, 7:'bP2', 8:'bN1'},
-                      3:{1:'wB1', 2:'wP3', 3:None, 4:None, 5:None, 6:None, 7:'bP3', 8:'bB1'},
-                      4:{1:'wQ1', 2:'wP4', 3:None, 4:None, 5:None, 6:None, 7:'bP4', 8:'bQ1'},
-                      5:{1:'wK1', 2:'wP5', 3:None, 4:None, 5:None, 6:None, 7:'bP5', 8:'bK1'},
-                      6:{1:'wB2', 2:'wP6', 3:None, 4:None, 5:None, 6:None, 7:'bP6', 8:'bB2'},
-                      7:{1:'wN2', 2:'wP7', 3:None, 4:None, 5:None, 6:None, 7:'bP7', 8:'bN2'},
-                      8:{1:'wR2', 2:'wP8', 3:None, 4:None, 5:None, 6:None, 7:'bP8', 8:'bR2'}}
 
         
     def changeTurn(self):
