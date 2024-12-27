@@ -10,7 +10,6 @@ PIECES_SIZE = pygame.image.load('images/bp.png').get_width()*IMG_FACTOR
 SQUARE_SIZE = WIDTH // COLS
 OFFSET = (SQUARE_SIZE - PIECES_SIZE)/2
 
-
 # Colors
 WHITE = (235, 235, 235)
 BLACK = (0, 0, 0)
@@ -32,8 +31,12 @@ for surname in surnames:
     piece_images[surname] = pygame.transform.smoothscale(piece_images[surname], ((piece_images[surname]).get_width()*IMG_FACTOR, (piece_images[surname]).get_height()*IMG_FACTOR))
 
 class Board():
-    def __init__(self):
+    def __init__(self, sound):
         self.init()
+        self.soundOn = sound
+        self.gameEnded = False
+        if sound:
+            self.init_sounds()
         
     def init(self):
         """initialize the board"""
@@ -83,7 +86,15 @@ class Board():
                 for index in self.piecesPositions[color][type]:
                     self.piecesPositions[color][type][index] = self.get_coords(self.pieces[color][type][index])
 
-        
+    def init_sounds(self):
+        pygame.init()
+        self.capture_sound = pygame.mixer.Sound('./data/soundtrack/capture.mp3')
+        self.castle_sound = pygame.mixer.Sound('./data/soundtrack/castle.mp3')
+        self.default_sound = pygame.mixer.Sound('./data/soundtrack/move-self.mp3')
+        self.check_sound = pygame.mixer.Sound('./data/soundtrack/move-check.mp3')
+        self.illegal_sound = pygame.mixer.Sound('./data/soundtrack/illegal.mp3')
+        self.promote_sound = pygame.mixer.Sound('./data/soundtrack/promote.mp3')
+
     def changeTurn(self):
         if self.turn == 'w':
             self.turn = 'b'
@@ -151,7 +162,6 @@ class Board():
         for elt in self.enPassant:
             id = board[elt[0][0]][elt[0][1]]
             if id != None and id[0] == color and id[1] == 'P' and not self.verifyCheckEnPassant(id, elt[0][0] + elt[1], elt[0][1] + direction[color], pieces, board):
-                #print("EN PASSANT")
                 allMoves.append([id, [elt[0][0] + elt[1], elt[0][1] + direction[color]]])
         for type in pieces[color]:
             for index in pieces[color][type]:
@@ -161,7 +171,6 @@ class Board():
                     if id[1] == 'P' and (move[1] == 8 or move[1] == 1) and not self.verifyForCheckWithMove(id, move[0], move[1], pieces, board):
                         for upType in ['Q', 'N', 'B', 'R']:
                             allMoves.append([id, move, upType])
-                            #print("UP THE PAWN")
                     elif not self.verifyForCheckWithMove(id, move[0], move[1], pieces, board):
                         allMoves.append([id,move])
         return allMoves
@@ -510,6 +519,8 @@ class Board():
         nb_moves_increase = True
         if self.board[new_x][new_y] != None:    #there is an opposite piece
             self.capture(self.board[new_x][new_y])  #maybe just put the code directly
+            if self.soundOn:
+                self.capture_sound.play()
             nb_moves_increase = False
         
         old_x, old_y = self.pieces[id[0]][id[1]][id[2]]
@@ -519,17 +530,25 @@ class Board():
                 self.upThePawn(id, 'Q', new_x, new_y)
             else:
                 self.upThePawn(id, upType, new_x, new_y)
+            if self.soundOn:
+                self.promote_sound.play()
             nb_moves_increase = False
 
         elif self.triesToCastle(id, new_x, new_y, self.pieces): #we try to castle
+            if self.soundOn:
+                self.castle_sound.play()
             if new_x == 7:
                 self.do_castle(id[0], "small")
             else:
                 self.do_castle(id[0], "big")
         else:
             if self.isEnPassant(id, new_x, new_y, self.pieces):   #we want to en passant
+                if self.soundOn:
+                    self.capture_sound.play()
                 self.doEnPassant(id, new_x, new_y) #rm the enpassanted pawn, update the position of the pawn
             else:
+                if self.soundOn:
+                    self.default_sound.play()
                 self.pieces[id[0]][id[1]][id[2]] = [new_x, new_y]
                 self.board[new_x][new_y] = id
                 self.board[old_x][old_y] = None
@@ -544,17 +563,20 @@ class Board():
             self.nb_moves = 0
         if self.nb_moves == 50:
             print('Draw 50 moves rule')
+            self.gameEnded = True
             #self.init()
 
         self.changeTurn()
         if self.isCheckmate(self.turn, self.pieces, self.board):
             print("checkmate !")
+            self.gameEnded = True
+
             #self.init()
         if self.isStalemate(self.turn, self.pieces, self.board):
             print("stalemate...")
+            self.gameEnded = True
+
             #self.init()
-        #print(self.getAllMoves(self.turn, self.pieces, self.board), "\n\n\n")
-        return self
 
     def setPos1(self):
         self.init()
@@ -566,6 +588,7 @@ class Board():
         self.playMove('bK1',6,8)
         self.playMove('bP3', 3,6)
         self.turn = 'w'
+        
     def setPos2(self):
         self.init()
         self.playMove("wN1", 3,3)

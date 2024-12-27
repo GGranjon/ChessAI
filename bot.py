@@ -133,7 +133,7 @@ king_eg = [
     -53, -34, -21, -11, -28, -14, -24, -43
 ]
 
-tables = {"P":[pawn_mg, pawn_eg], "N":[knight_mg, knight_eg], "B":[bishop_mg, bishop_eg], "R":[rook_mg, rook_eg], "Q":[queen_mg, queen_eg], "K":[king_mg, king_eg]}
+tables = {"P":[pawn_mg, pawn_eg,1], "N":[knight_mg, knight_eg,3], "B":[bishop_mg, bishop_eg,3], "R":[rook_mg, rook_eg,5], "Q":[queen_mg, queen_eg,9], "K":[king_mg, king_eg,1]}
 
 def getTableIndex(x,y, color):
     if color == 'b':
@@ -144,13 +144,14 @@ def getTableIndex(x,y, color):
 class alphaBetaBot():
     def __init__(self, color):
         self.color = color
-    def getStatus(self, board):
-        nb = 0
+
     def evaluate(self,board):
         white_mg_score = 0
         white_eg_score = 0
         black_mg_score = 0
         black_eg_score = 0
+        gameStatus = 0
+        maxPoint = 80
         status = self.getStatus(board)
         for y in range(1,9):
             for x in range(1,9):
@@ -158,6 +159,7 @@ class alphaBetaBot():
                 if id != None:
                     color = id[0]
                     type = id[1]
+                    gameStatus += tables[type][2]
                     index = getTableIndex(x,y, color)
                     if color == "w":
                         white_mg_score+= tables[type][0][index] + piece_values_mg[type]
@@ -165,6 +167,10 @@ class alphaBetaBot():
                     else:
                         black_mg_score += tables[type][0][index] + piece_values_mg[type]
                         black_eg_score += tables[type][1][index] + piece_values_eg[type]
+        mg_ratio = gameStatus/maxPoint
+        white_score = mg_ratio*white_mg_score + (1-mg_ratio)*white_eg_score
+        black_score = mg_ratio*black_mg_score + (1-mg_ratio)*black_eg_score
+        return round(white_score,2), round(black_score,2)
 
 class Bot():
     def __init__(self, color):
